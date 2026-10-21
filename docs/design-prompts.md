@@ -3,7 +3,7 @@
 One model per prompt. Paste a prompt into Claude Design as it is, export the GLB, and send it back
 **with a screenshot**. Make them in this order: Becky first (people are the riskiest part, so find out
 early whether the faces work), then the two attic sets, then Ram Dass, the monkey, Mr. Carrisford, and
-Melchisedec last.
+Melchisedec last (he comes out for crumbs, so he is needed).
 
 Everything described here is from Burnett's 1905 novel (Project Gutenberg #146). Where a prompt quotes
 the book, the quote is there so Design gets the period details right, not to be copied into the game.
@@ -143,7 +143,9 @@ EXPORT: GLB, every object and material named as above
 
 ## 3. The warm attic (attic_warm.glb)
 
-The swap has to read as *this room, changed*, so the old pieces stay exactly where they were.
+The swap has to read as *this room, changed*, so the old pieces stay exactly where they were. Every new
+piece must be its own named object: the game shows only the pieces the player imagined the night before,
+and the same pieces appear as faint dreamlike overlays while she is imagining them.
 
 ```
 Make a 3D model of a set of furniture for a browser game. The room's walls,
@@ -334,7 +336,7 @@ DO NOT INCLUDE: ground, background, fire, text, lights, camera
 EXPORT: GLB, every part and material named as above
 ```
 
-## 7. Melchisedec (melchisedec.glb): optional, cut it if time is short
+## 7. Melchisedec (melchisedec.glb)
 
 ```
 Make a 3D model of an animal for a browser game.
