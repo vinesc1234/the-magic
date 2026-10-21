@@ -2,8 +2,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { Flow } from 'three/addons/modifiers/CurveModifier.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isTouch = matchMedia('(pointer: coarse)').matches;
@@ -16,14 +14,14 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.4;   // brighter than pure candlelight so the corners stay readable
+renderer.toneMappingExposure = 1.4;   // brighter than pure moonlight so the corners stay readable
 renderer.domElement.tabIndex = 0;
 $('stage').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#0d0b0a');
-const FOG = 0.032, HEMI = 1.2, CANDLE = 2.4;   // daytime look: light levels shared by the scenes that reset them
-scene.fog = new THREE.FogExp2('#14110e', FOG);
-const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.03, 30);
+const NIGHT = '#0b1020';
+scene.background = new THREE.Color(NIGHT);
+scene.fog = new THREE.FogExp2(NIGHT, 0.03);
+const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.03, 120);   // far enough for the moon
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 let seed = 11; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -33,6 +31,9 @@ function canvasTex(w, h, draw, repeat) {
   if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
   return t;
 }
+// Tiling: a PlaneGeometry's UVs run 0..1 across the whole face; a Shape geometry's UVs are in metres.
+function tiled(tex, w, h, tile) { const t = tex.clone(); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(w / tile, h / tile); t.needsUpdate = true; return t; }
+const perMetre = (tex, tile) => tiled(tex, 1, 1, tile);
 
 // ---------- shared materials and textures ----------
 const floorTex = canvasTex(512, 512, (g, w, h) => {
@@ -60,27 +61,54 @@ function damask(base, line) {
     g.fillStyle = 'rgba(0,0,0,0.05)'; for (let i = 0; i < 1500; i++) g.fillRect(rand() * w, rand() * h, 2, 2);
   });
 }
-// his room: bare, stained plaster above the dado
-const plasterTex = canvasTex(256, 256, (g, w, h) => {
-  g.fillStyle = '#4a4033'; g.fillRect(0, 0, w, h);
-  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(${rand() > 0.5 ? '20,15,10' : '120,105,80'},0.05)`; g.beginPath(); g.ellipse(rand() * w, rand() * h, 10 + rand() * 40, 8 + rand() * 30, rand() * 3, 0, 7); g.fill(); }
-  g.fillStyle = 'rgba(0,0,0,0.06)'; for (let i = 0; i < 2000; i++) g.fillRect(rand() * w, rand() * h, 2, 2);
+// the attic: cold limewash, blotched with damp and crazed with fine cracks
+const limewashTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#8e9197'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(${rand() > 0.6 ? '58,56,50' : '172,174,180'},0.07)`; g.beginPath(); g.ellipse(rand() * w, rand() * h, 8 + rand() * 40, 6 + rand() * 30, rand() * 3, 0, 7); g.fill(); }
+  g.strokeStyle = 'rgba(38,38,42,0.2)'; g.lineWidth = 1;
+  for (let i = 0; i < 7; i++) { g.beginPath(); let x = rand() * w, y = rand() * h; g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (rand() - 0.5) * 30; y += rand() * 22; g.lineTo(x, y); } g.stroke(); }
+  g.fillStyle = 'rgba(0,0,0,0.05)'; for (let i = 0; i < 1800; i++) g.fillRect(rand() * w, rand() * h, 2, 2);
+});
+// the roof outside: courses of slate, each with a shadowed lower edge, the odd patch of moss
+const slateTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#23272e'; g.fillRect(0, 0, w, h);
+  const rows = 8, rh = h / rows, cols = 6, cw = w / cols;
+  for (let r = 0; r < rows; r++) for (let c = -1; c < cols + 1; c++) {
+    const x = c * cw + (r % 2 ? cw / 2 : 0), y = r * rh;
+    g.fillStyle = `hsl(215 9% ${17 + rand() * 9}%)`; g.fillRect(x + 1, y + 1, cw - 2, rh - 1);
+    g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(x, y + rh - 2, cw, 2);
+    if (rand() > 0.86) { g.fillStyle = 'rgba(78,92,58,0.3)'; g.fillRect(x + rand() * cw * 0.5, y + rh * 0.5, 6 + rand() * 14, 4); }
+  }
+  g.fillStyle = 'rgba(0,0,0,0.06)'; for (let i = 0; i < 1500; i++) g.fillRect(rand() * w, rand() * h, 2, 2);
+});
+// London stock brick, gone dark with soot
+const brickTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#29231f'; g.fillRect(0, 0, w, h);
+  const bh = 16, bw = 48;
+  for (let y = 0; y < h; y += bh) for (let x = -bw; x < w + bw; x += bw) {
+    const ox = (y / bh) % 2 ? bw / 2 : 0;
+    g.fillStyle = `hsl(${22 + rand() * 14} ${16 + rand() * 14}% ${21 + rand() * 10}%)`;
+    g.fillRect(x + ox + 1, y + 1, bw - 2, bh - 2);
+  }
+  g.fillStyle = 'rgba(0,0,0,0.08)'; for (let i = 0; i < 2000; i++) g.fillRect(rand() * w, rand() * h, 2, 2);
+});
+// the leads: sheets of lead, dull and damp, with a raised roll where two sheets meet
+const leadTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#4a4f57'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(${rand() > 0.5 ? '20,22,26' : '120,126,134'},0.08)`; g.beginPath(); g.ellipse(rand() * w, rand() * h, 10 + rand() * 40, 6 + rand() * 20, rand() * 3, 0, 7); g.fill(); }
+  for (const x of [0, 128]) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x, 0, 3, h); g.fillStyle = 'rgba(160,166,176,0.25)'; g.fillRect(x + 3, 0, 2, h); }
+  g.fillStyle = 'rgba(0,0,0,0.05)'; for (let i = 0; i < 1500; i++) g.fillRect(rand() * w, rand() * h, 2, 2);
 });
 const dadoMat = new THREE.MeshStandardMaterial({ color: '#2b1f16', roughness: 0.6 });
 const trimMat = new THREE.MeshStandardMaterial({ color: '#3b2a1e', roughness: 0.5 });
 const iron = new THREE.MeshStandardMaterial({ color: '#2a2a2c', metalness: 0.6, roughness: 0.5 });
-const frameMat = new THREE.MeshStandardMaterial({ color: '#3b2a1e', roughness: 0.6 });
-const skyTex = canvasTex(256, 320, (g, w, h) => {
-  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#7d8a96'); gr.addColorStop(0.7, '#a7aca8'); gr.addColorStop(1, '#6f7a68');
-  g.fillStyle = gr; g.fillRect(0, 0, w, h);
-  g.fillStyle = '#3c4637';
-  g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 8) g.lineTo(x, h - 70 - Math.sin(x / 30) * 18 - rand() * 10); g.lineTo(w, h); g.fill();
-  g.strokeStyle = '#2a3027'; g.lineWidth = 5; g.beginPath(); g.moveTo(190, h); g.lineTo(196, 120); g.stroke();
-  g.lineWidth = 2; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(195, 140 + i * 14); g.lineTo(195 + (i % 2 ? 40 : -40), 110 + i * 12); g.stroke(); }
-});
+const woodMat = new THREE.MeshStandardMaterial({ color: '#3a2c20', roughness: 0.7 });
+const rafterMat = new THREE.MeshStandardMaterial({ color: '#2e241c', roughness: 0.85 });
+const copingMat = new THREE.MeshStandardMaterial({ color: '#6d6a63', roughness: 0.9 });
+const brickMat = (w, h) => new THREE.MeshStandardMaterial({ map: tiled(brickTex, w, h, 1.2), roughness: 0.9 });
 
 const occluders = [];   // walls etc.: block the examine ray
-const examinables = []; // {id, roots:[], meshes:[]}
+const examinables = []; // {id, room, roots:[], meshes:[]}
 
 // A room: its own group (local coordinates), shell, colliders, lights
 function makeRoom({ name, minX, maxX, minZ, maxZ, h, wallTex, ceilColor, position, rotY, vent }) {
@@ -89,7 +117,7 @@ function makeRoom({ name, minX, maxX, minZ, maxZ, h, wallTex, ceilColor, positio
   const ft = floorTex.clone(); ft.wrapS = ft.wrapT = THREE.RepeatWrapping; ft.repeat.set(W / 1.6, D / 1.6); ft.needsUpdate = true;
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshStandardMaterial({ map: ft, roughness: 0.75 }));
   floor.rotation.x = -Math.PI / 2; floor.position.set(CX, 0, CZ); floor.receiveShadow = true; g.add(floor);
-  // a wall, optionally with a real rectangular opening in it (the ventilator between the two bedrooms)
+  // a wall, optionally with a real rectangular opening in it
   const wallGeo = (width, hole) => {
     if (!hole) return new THREE.PlaneGeometry(width, h);
     const sh = new THREE.Shape([new THREE.Vector2(-width / 2, -h / 2), new THREE.Vector2(width / 2, -h / 2), new THREE.Vector2(width / 2, h / 2), new THREE.Vector2(-width / 2, h / 2)]);
@@ -113,24 +141,6 @@ function makeRoom({ name, minX, maxX, minZ, maxZ, h, wallTex, ceilColor, positio
   ceil.rotation.x = Math.PI / 2; ceil.position.set(CX, h, CZ); g.add(ceil);
   return { name, group: g, minX, maxX, minZ, maxZ, h, colliders: [], lights: [] };
 }
-function addWindow(room, x, z, ry) {
-  const win = new THREE.Group();
-  win.add(new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.3), new THREE.MeshBasicMaterial({ map: skyTex, color: '#9aa0a0' })));
-  for (let i = -3; i <= 3; i++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 1.3, 8), iron); b.position.set(i * 0.12, 0, 0.05); win.add(b); }
-  for (const y of [-0.45, 0.45]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.025, 0.02), iron); b.position.set(0, y, 0.05); win.add(b); }
-  for (const [w2, h2, x2, y2] of [[1.04, 0.07, 0, 0.685], [1.04, 0.07, 0, -0.685], [0.07, 1.44, -0.485, 0], [0.07, 1.44, 0.485, 0]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(w2, h2, 0.1), frameMat); b.position.set(x2, y2, 0.04); win.add(b); }
-  for (const s of [-1, 1]) { const sh = new THREE.Mesh(new THREE.BoxGeometry(0.46, 1.36, 0.04), new THREE.MeshStandardMaterial({ color: '#33251b', roughness: 0.7 })); sh.position.set(s * 0.74, 0, 0.1); sh.rotation.y = s * 0.35; sh.castShadow = true; win.add(sh); }
-  const sill = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.05, 0.2), frameMat); sill.position.set(0, -0.72, 0.1); win.add(sill);
-  win.position.set(x, 1.45, z); win.rotation.y = ry; room.group.add(win);
-  // grey daylight from outside the window
-  const out = new THREE.Vector3(0, 0.85, -0.7).applyAxisAngle(new THREE.Vector3(0, 1, 0), ry).add(new THREE.Vector3(x, 1.45, z));
-  const into = new THREE.Vector3(0, -1.45, 2.2).applyAxisAngle(new THREE.Vector3(0, 1, 0), ry).add(new THREE.Vector3(x, 1.45, z));
-  const day = new THREE.SpotLight('#a9b6c8', 14, 0, 0.75, 0.8, 1.4);
-  day.position.copy(out); day.target.position.copy(into);
-  day.castShadow = true; day.shadow.mapSize.set(1024, 1024); day.shadow.bias = -0.0005; day.shadow.normalBias = 0.02;
-  room.group.add(day, day.target); room.lights.push({ L: day, base: 14 });
-  return win;
-}
 function addDoor(room, x, z, ry) {
   const door = new THREE.Group();
   const dp = new THREE.Mesh(new THREE.BoxGeometry(0.86, 2.05, 0.05), new THREE.MeshStandardMaterial({ color: '#3b2a1e', roughness: 0.55 })); dp.position.y = 1.025; door.add(dp);
@@ -140,7 +150,7 @@ function addDoor(room, x, z, ry) {
   const hinge = new THREE.Group();
   hinge.position.set(x, 0, z).add(new THREE.Vector3(0.43, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), ry));
   hinge.rotation.y = ry; door.position.x = -0.43; hinge.add(door); room.group.add(hinge);
-  // the dark corridor seen when it opens (hidden inside the closed door's thickness)
+  // the dark landing seen when it opens (hidden inside the closed door's thickness)
   const gap = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 2.05), new THREE.MeshBasicMaterial({ color: '#0e0a07' }));
   gap.position.set(x, 1.025, z).add(new THREE.Vector3(0, 0, -0.024).applyAxisAngle(new THREE.Vector3(0, 1, 0), ry));
   gap.rotation.y = ry; room.group.add(gap);
@@ -148,55 +158,80 @@ function addDoor(room, x, z, ry) {
   return door;
 }
 
-// ---------- the two rooms ----------
-// The house, from above: Julia's bedroom and Dr. Roylott's sit back to back, sharing one wall, and both open onto
-// the same corridor along their east side (as in the story: "they all open out into the same corridor").
-// The ventilator is a real 32 x 22 cm hole through the shared wall, so you can see from one room into the other.
-// Julia's bedroom sits at the origin (the furniture file was laid out for a 4 m x 4.5 m room).
-const VENT = { x: 0.45, y: 2.4, w: 0.32, h: 0.22 };    // in Julia's room (= world) coordinates
-const WALL = 0.12, ROY_X = -0.2;                         // his room's east wall lines up with hers (x = 2.05)
-const julia = makeRoom({ name: 'Julia Stoner\'s bedroom', minX: -2.05, maxX: 2.05, minZ: -2.252, maxZ: 2.25, h: 2.75,
-  wallTex: damask('#2e3b32', 'rgba(160,170,130,0.12)'), ceilColor: '#4a443c', position: new THREE.Vector3(0, 0, 0), rotY: 0, vent: VENT });
-// Dr. Roylott's room is behind her back wall, turned to face it. Turned round, his x runs the other way.
-const roylott = makeRoom({ name: 'Dr. Roylott\'s room', minX: -2.25, maxX: 2.25, minZ: -2.25, maxZ: 2.25, h: 2.75,
-  wallTex: plasterTex, ceilColor: '#3e3a33', position: new THREE.Vector3(ROY_X, 0, -2.252 - WALL - 2.25), rotY: Math.PI,
-  vent: { ...VENT, x: ROY_X - VENT.x } });
-// the shaft through the wall between the two grilles
-{
-  const duct = new THREE.MeshStandardMaterial({ color: '#2a241e', roughness: 1, side: THREE.DoubleSide });
-  const z0 = -2.252, d = WALL, zc = z0 - d / 2;
-  for (const [w, hgt, x, y, ry, rx] of [[d, VENT.h, VENT.x - VENT.w / 2, VENT.y, Math.PI / 2, 0], [d, VENT.h, VENT.x + VENT.w / 2, VENT.y, Math.PI / 2, 0],
-                                         [VENT.w, d, VENT.x, VENT.y - VENT.h / 2, 0, Math.PI / 2], [VENT.w, d, VENT.x, VENT.y + VENT.h / 2, 0, Math.PI / 2]]) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), duct); m.position.set(x, y, zc); m.rotation.set(rx, ry, 0); scene.add(m);
+// An attic under a pitched roof: a low knee wall at the front (minZ), a tall wall at the back (maxZ), the
+// ceiling following the rafters between them, and a real skylight cut through the slope. The opening has
+// depth, glass and slates round it, so what you see through it is the actual roof and the house opposite,
+// not a picture. `slope` is a frame lying in the roof (x across, y up the slope, z down into the room), so
+// the hole in the ceiling, its reveal and the hole in the slates are one and the same rectangle.
+function makeAttic({ name, minX, maxX, minZ, maxZ, hLow, hHigh, position, sky, roofT, eaveZ }) {
+  const g = new THREE.Group(); g.position.copy(position); scene.add(g);
+  const W = maxX - minX, D = maxZ - minZ, CX = (minX + maxX) / 2, rise = hHigh - hLow;
+  const L = Math.hypot(D, rise), cosA = D / L, sinA = rise / L;
+  const slope = new THREE.Group(); slope.position.set(0, hLow, minZ);
+  slope.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, sinA, cosA), new THREE.Vector3(0, -cosA, sinA)));
+  g.add(slope);
+  const sOf = z => (z - minZ) / cosA;   // how far up the slope a point on the floor sits beneath
+  const ceilAt = z => hLow + (Math.min(Math.max(z, minZ), maxZ) - minZ) / D * rise;
+  const shell = m => { m.castShadow = m.receiveShadow = true; occluders.push(m); return m; };
+  const bar = (parent, w, h, d, x, y, z, mat) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; parent.add(b); return b; };
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshStandardMaterial({ map: tiled(floorTex, W, D, 1.6), roughness: 0.8 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(CX, 0, (minZ + maxZ) / 2); floor.receiveShadow = true; g.add(floor);
+  // the four walls; the two side walls are cut to the line of the roof
+  const wallMat = new THREE.MeshStandardMaterial({ map: perMetre(limewashTex, 1.4), roughness: 0.95, shadowSide: THREE.DoubleSide });
+  const shape = pts => new THREE.ShapeGeometry(new THREE.Shape(pts.map(([u, v]) => new THREE.Vector2(u, v))));
+  const wall = (pts, x, z, ry) => { const m = new THREE.Mesh(shape(pts), wallMat); m.position.set(x, 0, z); m.rotation.y = ry; g.add(shell(m)); };
+  wall([[minX, 0], [maxX, 0], [maxX, hLow], [minX, hLow]], 0, minZ, 0);                  // knee wall, under the eaves
+  wall([[-maxX, 0], [-minX, 0], [-minX, hHigh], [-maxX, hHigh]], 0, maxZ, Math.PI);      // back wall, onto the stairhead
+  wall([[-minZ, 0], [-maxZ, 0], [-maxZ, hHigh], [-minZ, hLow]], minX, 0, Math.PI / 2);   // west
+  wall([[minZ, 0], [maxZ, 0], [maxZ, hHigh], [minZ, hLow]], maxX, 0, -Math.PI / 2);      // east
+  const skirt = new THREE.MeshStandardMaterial({ color: '#2a221b', roughness: 0.8 });
+  for (const [w, d, x, z] of [[W, 0.02, CX, minZ + 0.01], [W, 0.02, CX, maxZ - 0.01], [0.02, D, minX + 0.01, (minZ + maxZ) / 2], [0.02, D, maxX - 0.01, (minZ + maxZ) / 2]]) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1, d), skirt); b.position.set(x, 0.05, z); b.receiveShadow = true; g.add(b);
   }
+
+  // the ceiling and the slates above it, with the same hole through both
+  const hx0 = sky.x - sky.w / 2, hx1 = sky.x + sky.w / 2, hy0 = sOf(sky.z0), hy1 = sOf(sky.z1);
+  const hw = hx1 - hx0, hh = hy1 - hy0, hxc = (hx0 + hx1) / 2, hyc = (hy0 + hy1) / 2;
+  const withHole = (x0, x1, y0, y1) => {
+    const s = new THREE.Shape([new THREE.Vector2(x0, y0), new THREE.Vector2(x1, y0), new THREE.Vector2(x1, y1), new THREE.Vector2(x0, y1)]);
+    s.holes.push(new THREE.Path([new THREE.Vector2(hx0, hy0), new THREE.Vector2(hx0, hy1), new THREE.Vector2(hx1, hy1), new THREE.Vector2(hx1, hy0)]));
+    return new THREE.ShapeGeometry(s);
+  };
+  const ceilMat = new THREE.MeshStandardMaterial({ map: perMetre(limewashTex, 1.4), color: '#c4c8d0', roughness: 1, shadowSide: THREE.DoubleSide });
+  slope.add(shell(new THREE.Mesh(withHole(minX, maxX, 0, L), ceilMat)));
+  const yE = (eaveZ - minZ + roofT * sinA) / cosA, yR = (D + roofT * sinA) / cosA;   // the eaves and the ridge, measured up the outer surface
+  const slates = new THREE.Mesh(withHole(minX - 0.06, maxX + 0.06, yE, yR),
+    new THREE.MeshStandardMaterial({ map: perMetre(slateTex, 1.1), roughness: 0.7, side: THREE.BackSide, shadowSide: THREE.DoubleSide }));
+  slates.position.z = -roofT; slope.add(shell(slates));
+  shell(bar(slope, W + 0.12, 0.16, 0.06, CX, yR - 0.05, -roofT - 0.03, new THREE.MeshStandardMaterial({ color: '#1f232b', roughness: 0.6 })));   // ridge
+  // the reveal: the sides of the opening, through the thickness of the roof
+  const revealMat = new THREE.MeshStandardMaterial({ color: '#77746c', roughness: 0.95, side: THREE.DoubleSide });
+  for (const [w, h, x, y, rx, ry] of [[hw, roofT, hxc, hy0, -Math.PI / 2, 0], [hw, roofT, hxc, hy1, Math.PI / 2, 0], [roofT, hh, hx0, hyc, 0, Math.PI / 2], [roofT, hh, hx1, hyc, 0, -Math.PI / 2]]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), revealMat); m.position.set(x, y, -roofT / 2); m.rotation.set(rx, ry, 0); slope.add(shell(m));
+  }
+  // inside: a wooden lining round the opening. Outside: the raised kerb the glass sits on. (No glazing bar: it
+  // would run straight down the middle of the view to the lit window, which is the whole point of the opening.)
+  const lining = new THREE.Group(), kerb = new THREE.Group(); slope.add(lining, kerb);
+  const t = 0.05, k = 0.07, kz = -roofT - k / 2, kerbMat = new THREE.MeshStandardMaterial({ color: '#3b4038', roughness: 0.6 });
+  bar(lining, hw + 2 * t, t, 0.025, hxc, hy0 - t / 2, 0.012, woodMat); bar(lining, hw + 2 * t, t, 0.025, hxc, hy1 + t / 2, 0.012, woodMat);
+  bar(lining, t, hh, 0.025, hx0 - t / 2, hyc, 0.012, woodMat); bar(lining, t, hh, 0.025, hx1 + t / 2, hyc, 0.012, woodMat);
+  bar(kerb, hw + 2 * k, k, k, hxc, hy0 - k / 2, kz, kerbMat); bar(kerb, hw + 2 * k, k, k, hxc, hy1 + k / 2, kz, kerbMat);
+  bar(kerb, k, hh, k, hx0 - k / 2, hyc, kz, kerbMat); bar(kerb, k, hh, k, hx1 + k / 2, hyc, kz, kerbMat);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(hw + 0.04, hh + 0.04), new THREE.MeshStandardMaterial({ color: '#9fb6d2', transparent: true, opacity: 0.14, roughness: 0.08, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false }));
+  glass.position.set(hxc, hyc, -roofT - 0.045); slope.add(glass);
+  // invisible targets filling the opening: one just inside the glass, one just outside it
+  const inside = new THREE.Group(), outside = new THREE.Group(); slope.add(inside, outside);
+  proxy(inside, new THREE.BoxGeometry(hw, hh, 0.02), hxc, hyc, -0.02);
+  proxy(outside, new THREE.BoxGeometry(hw + 0.1, hh + 0.1, 0.02), hxc, hyc, -roofT - 0.1);
+  // rafters: a trimmer each side of the opening, then every 62 cm out to the walls
+  const rafterXs = [hx0 - 0.06, hx1 + 0.06];
+  for (let x = hx0 - 0.68; x > minX + 0.15; x -= 0.62) rafterXs.push(x);
+  for (let x = hx1 + 0.68; x < maxX - 0.15; x += 0.62) rafterXs.push(x);
+  for (const x of rafterXs) bar(slope, 0.06, L, 0.09, x, L / 2, 0.045, rafterMat);
+  return { name, group: g, minX, maxX, minZ, maxZ, h: hHigh, floorY: 0, ceilAt, colliders: [], lights: [], entries: {},
+    skylight: { lining, kerb, inside, outside, glass, centre: () => slope.localToWorld(new THREE.Vector3(hxc, hyc, 0)) } };
 }
-const rooms = [julia, roylott];
-
-const juliaWindow = addWindow(julia, -2.05 + 0.011, -1.3, Math.PI / 2);
-const juliaDoor = addDoor(julia, 2.05 - 0.026, 1.5, -Math.PI / 2);          // east wall, onto the corridor
-const roylottWindow = addWindow(roylott, 2.25 - 0.011, -0.55, -Math.PI / 2);
-const roylottDoor = addDoor(roylott, -2.25 + 0.026, 1.65, Math.PI / 2);     // his west wall faces east once turned: the same corridor
-examinables.push({ id: 'window', roots: [juliaWindow] });
-examinables.push({ id: 'door_out', roots: [juliaDoor] });
-examinables.push({ id: 'door_back', roots: [roylottDoor] });
-
-// fireplace in Julia's room, its chimney stapled shut
-{
-  const fire = new THREE.Group();
-  const stone = new THREE.MeshStandardMaterial({ color: '#4a443d', roughness: 0.9 });
-  const fs = (w2, h2, d2, x, y, z, m = stone) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w2, h2, d2), m); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; fire.add(b); };
-  fs(0.22, 1.05, 0.3, -0.53, 0.525, 0); fs(0.22, 1.05, 0.3, 0.53, 0.525, 0); fs(1.36, 0.1, 0.38, 0, 1.1, 0.03, trimMat); fs(1.28, 0.22, 0.3, 0, 0.94, 0);
-  fs(0.84, 0.82, 0.02, 0, 0.41, -0.13, new THREE.MeshStandardMaterial({ color: '#0b0a09', roughness: 1 }));
-  fs(1.5, 0.04, 0.5, 0, 0.02, 0.1, new THREE.MeshStandardMaterial({ color: '#2a2622', roughness: 0.8 }));
-  for (const x of [-0.25, -0.08, 0.08, 0.25]) fs(0.03, 0.12, 0.03, x, 0.75, -0.1, iron);
-  const ash = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 6), new THREE.MeshStandardMaterial({ color: '#3a3632', roughness: 1 })); ash.scale.set(1.3, 0.2, 0.8); ash.position.set(0, 0.03, -0.02); fire.add(ash);
-  fire.position.set(-0.9, 0, 2.25 - 0.16); fire.rotation.y = Math.PI; julia.group.add(fire);
-  examinables.push({ id: 'chimney', roots: [fire] });
-  julia.colliders.push({ minX: -1.67, maxX: -0.13, minZ: 2.25 - 0.42, maxZ: 2.25 });
-}
-
-const hemi = new THREE.HemisphereLight('#8f99a6', '#2a2018', HEMI); scene.add(hemi);
-scene.add(camera);   // so the cane can be held in view
 
 // ---------- models ----------
 const loader = new GLTFLoader();
@@ -214,6 +249,8 @@ function decodeBase64(str) {
   }
   return out.subarray(0, n);
 }
+// The models this game loads. tools/build.py reads this list, so it is the only one to keep up to date.
+const MODELS = [];
 // Each model is published as a text file next to the page (base64; artifacts don't serve .glb).
 // Loading them separately keeps the page itself small, so a page update can't catch it half-read.
 let modelsDone = 0, loadFailed = false;
@@ -225,7 +262,7 @@ function parseGLB(id) {
       const bytes = decodeBase64(txt);
       // a GLB file starts with the letters "glTF"; anything else means the download was cut short
       if (bytes.length < 20 || bytes[0] !== 0x67 || bytes[1] !== 0x6c || bytes[2] !== 0x54 || bytes[3] !== 0x46) return rej(new Error('incomplete model ' + id));
-      loader.parse(bytes.slice().buffer, '', g => { modelsDone++; if (!loadFailed) $('begin').textContent = `Loading the house… ${modelsDone} of 7`; res(g); }, rej);
+      loader.parse(bytes.slice().buffer, '', g => { modelsDone++; if (!loadFailed) $('begin').textContent = `Loading the attic… ${modelsDone} of ${MODELS.length}`; res(g); }, rej);
     }));
 }
 const parts = {};
@@ -246,321 +283,270 @@ function fixJoints(root, specs) {
     pivot.attach(n); root.updateMatrixWorld(true);
   }
 }
-function addCandle(room, candleScene, x, y, z, ry, shadow) {
-  const c = candleScene.clone(true);
-  c.position.set(x, y, z); c.rotation.y = ry;
-  c.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  const f = c.getObjectByName('flame'); if (f) flames.push(f);
-  const L = new THREE.PointLight('#ffb35c', CANDLE, 7, 1.5);
-  L.position.set(x, y + 0.2, z);
-  if (shadow) { L.castShadow = true; L.shadow.mapSize.set(512, 512); L.shadow.bias = -0.002; L.shadow.radius = 4; }
-  room.group.add(c, L); room.lights.push({ L, base: CANDLE, flicker: true, seed: rand() * 10 });
-}
 function proxy(parent, geo, x, y, z) {
   if (!parent) return;
   const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ visible: false })); m.position.set(x, y, z); m.userData.proxy = true; parent.add(m);
 }
 
-let helenRig = null;
-let roy = null;
-let adder = null, caneHold = null;
-Promise.all([parseGLB('glb-bedroom'), parseGLB('glb-candle'), parseGLB('glb-roylott'), parseGLB('glb-helen'), parseGLB('glb-grimesby'), parseGLB('glb-adder'), parseGLB('glb-cane')]).then(([bed, candle, roy0, hel, grim, snk, cn]) => {
-  const roy_ = roy0;
-  for (const [gltf, room] of [[bed, julia], [roy_, roylott]]) {
-    gltf.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; occluders.push(o); } });
-    room.group.add(gltf.scene);
-  }
-  const J = n => bed.scene.getObjectByName(n), R = n => roy_.scene.getObjectByName(n);
-  Object.assign(parts, {
-    bell_rope: J('bell_rope'), ventilator: J('ventilator'), wicker_chair: J('wicker_chair'), rug: J('rug'),
-    chest_drawer_1a: J('chest_drawer_1a'), dressing_table_drawer: J('dressing_table_drawer'),
-    safe_door: R('safe_door'), vent_back: R('ventilator_back'), dog_lash: R('dog_lash'),
-  });
-  // Julia's pillow came as a stretched sphere (it looked like an egg). Keep its size, place and
-  // material, but give it a pillow's shape: rounded corners, thin edges, plump middle.
-  const pillow = J('bed_pillow');
-  if (pillow && pillow.isMesh && Math.abs(pillow.scale.x - pillow.scale.y) > 0.1) {
-    const g = new RoundedBoxGeometry(2, 2, 2, 6, 0.55);
-    const pos = g.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-      const puff = 0.55 + 0.45 * (1 - x * x * 0.85) * (1 - z * z * 0.85);   // thinner toward the edges
-      pos.setY(i, y * puff);
-    }
-    g.computeVertexNormals();
-    pillow.geometry.dispose(); pillow.geometry = g;
-    pillow.scale.y *= 0.85;   // a little flatter overall
-  }
-  // the wicker chair was pressed into the dressing table; give it room
-  if (parts.wicker_chair) { parts.wicker_chair.position.set(1.62, 0, 0.5); parts.wicker_chair.rotation.y = -0.7; }
-  if (parts.rug) parts.rug.traverse(o => { if (o.isMesh) o.castShadow = false; });
+// ---------- the floor plan ----------
+// The house from above. -z is the front of the roof: toward the leads and the house opposite.
+//
+//   Mr. Carrisford's house: a lit window opposite your skylight, a dark one opposite Becky's    z = -5.6
+//   the light-well between the two houses, 1.35 m across
+//   parapet                                                                                       z = -4.0
+//   THE LEADS: a flat walk of lead along the front of the roof. A chimney stack stands on it.    z -4.0 .. -2.0
+//   eaves                                                                                         z = -2.0
+//   YOUR ATTIC  x -1.5..1.5  |  12 cm wall  |  BECKY'S ATTIC  x 1.62..4.22                         z -1.8 .. 1.8
+//   the stairhead, behind both doors                                                              z > 1.8
+//
+// Your skylight looks straight across the leads at the lit window. The chimney stack stands exactly on the
+// line between Becky's skylight and that window, so nobody in the lit room can see into her attic. That is
+// clue 6, and it is why the stack is where it is: tools/test/shots.js checks both sightlines.
+const EYE = 1.38, PR = 0.2;   // Sara is eleven. Everything is seen from a child's height.
+const ROOF = { minZ: -1.8, maxZ: 1.8, hLow: 1.4, hHigh: 3.0, roofT: 0.14, eaveZ: -2.0 };
+const SKY = { x: 0, w: 0.8, z0: -1.70, z1: -0.85 };   // the skylight, in each attic's own coordinates
+const WALL = 0.12, BECKY_X = 1.5 + WALL + 1.3;
+const LEADS_Y = 1.15, PARAPET_Z = -4.0, FACADE_Z = -5.6, WELL_Y = -3;
+const PARTY_W = -1.5 - WALL, PARTY_E = BECKY_X + 1.3 + WALL;
+const LIT = { x0: -0.6, x1: 0.6, y0: 1.95, y1: 3.25 };                         // opposite your skylight
+const DARK = { x0: BECKY_X - 0.6, x1: BECKY_X + 0.6, y0: 1.95, y1: 3.25 };     // opposite Becky's
+const STACK = { x0: 1.16, x1: 1.96, z0: -3.54, z1: -3.04, top: 3.4 };
 
-  // the bell-rope hangs exactly to the pillow (it used to be long enough to sink into it)
-  const ropeAxis = { top: new THREE.Vector3(0.18, 2.4, -2.21), bottom: new THREE.Vector3(0.17, 0.9, -2.12) };
-  if (parts.bell_rope && J('bed_pillow')) {
-    julia.group.updateMatrixWorld(true);
-    const rope = parts.bell_rope, rb = new THREE.Box3().setFromObject(rope), top = rope.getWorldPosition(new THREE.Vector3());
-    const cx = (rb.min.x + rb.max.x) / 2, cz = (rb.min.z + rb.max.z) / 2;
-    const hit = new THREE.Raycaster(new THREE.Vector3(cx, 2.2, cz), new THREE.Vector3(0, -1, 0)).intersectObject(J('bed_pillow'), true)[0];
-    const restY = hit ? hit.point.y + 0.004 : rb.min.y;
-    if (rb.min.y < restY) rope.scale.y *= (top.y - restY) / (top.y - rb.min.y);
-    ropeAxis.top.copy(top); ropeAxis.bottom.set(cx, restY, cz);
+const sara = makeAttic({ name: 'Your attic', minX: -1.5, maxX: 1.5, ...ROOF, position: new THREE.Vector3(0, 0, 0), sky: SKY });
+const becky = makeAttic({ name: 'Becky\'s attic', minX: -1.3, maxX: 1.3, ...ROOF, position: new THREE.Vector3(BECKY_X, 0, 0), sky: SKY });
+
+// world-space building helpers for everything outside the two attics
+function box(w, h, d, x, y, z, mat, parent = scene) { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; parent.add(b); return b; }
+function plane(w, h, x, y, z, rx, ry, mat, parent = scene) { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); p.position.set(x, y, z); p.rotation.set(rx, ry, 0); p.castShadow = p.receiveShadow = true; parent.add(p); return p; }
+
+// the leads: walkable, so it is a room too. Its floor sits 1.15 m above the attic floors, at the eaves.
+const LCX = (PARTY_W + PARTY_E) / 2, LCZ = (ROOF.eaveZ + PARAPET_Z) / 2, LW = PARTY_E - PARTY_W, LD = ROOF.eaveZ - PARAPET_Z;
+const leads = { name: 'The leads', group: new THREE.Group(), minX: -LW / 2, maxX: LW / 2, minZ: -LD / 2, maxZ: LD / 2, floorY: LEADS_Y, colliders: [], lights: [], entries: {} };
+leads.group.position.set(LCX, LEADS_Y, LCZ); scene.add(leads.group);
+plane(LW, LD, LCX, LEADS_Y, LCZ, -Math.PI / 2, 0, new THREE.MeshStandardMaterial({ map: tiled(leadTex, LW, LD, 1.3), roughness: 0.45, metalness: 0.35 })).castShadow = false;
+{
+  // where the slates finish: a fascia board and an iron gutter along the eaves
+  const rise = ROOF.hHigh - ROOF.hLow, rl = Math.hypot(ROOF.maxZ - ROOF.minZ, rise), cosA = (ROOF.maxZ - ROOF.minZ) / rl, sinA = rise / rl;
+  const eaveY = ROOF.hLow + (ROOF.eaveZ - ROOF.minZ + ROOF.roofT * sinA) / cosA * sinA + ROOF.roofT * cosA;
+  box(LW, eaveY - LEADS_Y + 0.02, 0.04, LCX, (LEADS_Y + eaveY) / 2, ROOF.eaveZ - 0.02, woodMat);
+  box(LW, 0.07, 0.11, LCX, eaveY - 0.03, ROOF.eaveZ - 0.07, iron);
+}
+// the parapet along the front, and its far face going down into the light-well
+occluders.push(box(LW, 0.45, 0.25, LCX, LEADS_Y + 0.225, PARAPET_Z - 0.125, brickMat(LW, 0.45)));
+box(LW + 0.04, 0.06, 0.32, LCX, LEADS_Y + 0.48, PARAPET_Z - 0.125, copingMat);
+occluders.push(plane(LW, LEADS_Y - WELL_Y, LCX, (LEADS_Y + WELL_Y) / 2, PARAPET_Z - 0.25, 0, Math.PI, brickMat(LW, LEADS_Y - WELL_Y)));
+plane(LW, PARAPET_Z - 0.25 - FACADE_Z, LCX, WELL_Y, (PARAPET_Z - 0.25 + FACADE_Z) / 2, -Math.PI / 2, 0, new THREE.MeshStandardMaterial({ color: '#141519', roughness: 1 }));
+// the party walls either side, rising above the roofs, so the view along the leads ends in brick
+{
+  const z0 = FACADE_Z, z1 = 2.4, y1 = 3.7, len = z1 - z0, hgt = y1 - WELL_Y;
+  occluders.push(plane(len, hgt, PARTY_W, (WELL_Y + y1) / 2, (z0 + z1) / 2, 0, Math.PI / 2, brickMat(len, hgt)));
+  occluders.push(plane(len, hgt, PARTY_E, (WELL_Y + y1) / 2, (z0 + z1) / 2, 0, -Math.PI / 2, brickMat(len, hgt)));
+  box(0.3, 0.06, len, PARTY_W - 0.1, y1 + 0.03, (z0 + z1) / 2, copingMat);
+  box(0.3, 0.06, len, PARTY_E + 0.1, y1 + 0.03, (z0 + z1) / 2, copingMat);
+}
+// the chimney stack on the leads, standing between Becky's skylight and the lit window
+{
+  const sw = STACK.x1 - STACK.x0, sd = STACK.z1 - STACK.z0, sh = STACK.top - LEADS_Y, cx = (STACK.x0 + STACK.x1) / 2, cz = (STACK.z0 + STACK.z1) / 2;
+  occluders.push(box(sw, sh, sd, cx, LEADS_Y + sh / 2, cz, brickMat(sw, sh)));
+  box(sw + 0.08, 0.1, sd + 0.08, cx, STACK.top + 0.05, cz, copingMat);
+  const potMat = new THREE.MeshStandardMaterial({ color: '#6b3a26', roughness: 0.85 });
+  for (const dx of [-0.24, 0, 0.24]) { const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.42, 14), potMat); pot.position.set(cx + dx, STACK.top + 0.31, cz); pot.castShadow = true; scene.add(pot); }
+  leads.colliders.push({ minX: STACK.x0 - LCX, maxX: STACK.x1 - LCX, minZ: STACK.z0 - LCZ, maxZ: STACK.z1 - LCZ });
+}
+
+// ---------- the house opposite ----------
+const FACADE_TOP = 4.7;
+{
+  const s = new THREE.Shape([new THREE.Vector2(PARTY_W, WELL_Y), new THREE.Vector2(PARTY_E, WELL_Y), new THREE.Vector2(PARTY_E, FACADE_TOP), new THREE.Vector2(PARTY_W, FACADE_TOP)]);
+  for (const w of [LIT, DARK]) s.holes.push(new THREE.Path([new THREE.Vector2(w.x0, w.y0), new THREE.Vector2(w.x0, w.y1), new THREE.Vector2(w.x1, w.y1), new THREE.Vector2(w.x1, w.y0)]));
+  const facade = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshStandardMaterial({ map: perMetre(brickTex, 1.2), roughness: 0.9 }));
+  facade.position.z = FACADE_Z; facade.castShadow = facade.receiveShadow = true; scene.add(facade); occluders.push(facade);
+  box(LW + 0.1, 0.18, 0.22, LCX, FACADE_TOP - 0.09, FACADE_Z + 0.11, copingMat);   // cornice
+  box(LW, 0.08, 0.06, LCX, LIT.y0 - 0.45, FACADE_Z + 0.03, copingMat);              // string course below the windows
+  const potMat = new THREE.MeshStandardMaterial({ color: '#6b3a26', roughness: 0.85 });
+  box(0.9, 0.9, 0.5, 3.4, FACADE_TOP + 0.45, FACADE_Z - 0.6, brickMat(0.9, 0.9));
+  for (const dx of [-0.22, 0.22]) { const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.085, 0.4, 14), potMat); pot.position.set(3.4 + dx, FACADE_TOP + 1.1, FACADE_Z - 0.6); scene.add(pot); }
+}
+// A sash window set into a wall `depth` thick. The glass is real: you see straight through it.
+function sashWindow(win, z, depth, lit) {
+  const w = win.x1 - win.x0, h = win.y1 - win.y0, cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2;
+  const stucco = new THREE.MeshStandardMaterial({ color: '#8b8475', roughness: 0.9, side: THREE.DoubleSide });
+  for (const [pw, ph, x, y, rx, ry] of [[w, depth, cx, win.y0, -Math.PI / 2, 0], [w, depth, cx, win.y1, Math.PI / 2, 0], [depth, h, win.x0, cy, 0, Math.PI / 2], [depth, h, win.x1, cy, 0, -Math.PI / 2]]) {
+    occluders.push(plane(pw, ph, x, y, z - depth / 2, rx, ry, stucco));
   }
+  box(w + 0.18, 0.06, 0.2, cx, win.y0 - 0.03, z + 0.08, copingMat);   // sill
+  const frame = new THREE.MeshStandardMaterial({ color: '#2b2622', roughness: 0.55 }), fz = z - 0.08;
+  box(w, 0.06, 0.06, cx, win.y0 + 0.03, fz, frame); box(w, 0.06, 0.06, cx, win.y1 - 0.03, fz, frame);
+  box(0.06, h, 0.06, win.x0 + 0.03, cy, fz, frame); box(0.06, h, 0.06, win.x1 - 0.03, cy, fz, frame);
+  box(w, 0.05, 0.05, cx, cy, fz, frame);        // meeting rail between the two sashes
+  box(0.025, h, 0.03, cx, cy, fz, frame);       // glazing bar
+  const glass = plane(w, h, cx, cy, fz - 0.01, 0, 0, new THREE.MeshStandardMaterial({ color: lit ? '#ffd9a0' : '#5a6474', transparent: true, opacity: lit ? 0.08 : 0.3, roughness: 0.05, depthWrite: false, side: THREE.DoubleSide }));
+  glass.castShadow = false;
+  return glass;
+}
+const litGlass = sashWindow(LIT, FACADE_Z, 0.25, true);
+litGlass.userData.litWindow = true;
+sashWindow(DARK, FACADE_Z, 0.25, false);
+occluders.push(plane(DARK.x1 - DARK.x0 - 0.06, DARK.y1 - DARK.y0 - 0.06, (DARK.x0 + DARK.x1) / 2, (DARK.y0 + DARK.y1) / 2, FACADE_Z - 0.2, 0, 0,
+  new THREE.MeshStandardMaterial({ color: '#4a463c', roughness: 1 })));   // a drawn blind: nobody looks out of this one
+// Mr. Carrisford's room behind the lit window: the engine's own makeRoom, turned to face us.
+// It is only ever seen through the glass, so it lights itself: the wallpaper glows, and the two lights in it
+// are short-ranged and set deep in the room. A long-range lamp in here shone straight through the brick and
+// lit the party wall and the cornice outside, because lights without shadows pass through walls.
+const CAR = { w: 3.2, d: 2.8, h: 2.6 };
+const carRoom = makeRoom({ name: 'Mr. Carrisford\'s room', minX: -CAR.w / 2, maxX: CAR.w / 2, minZ: -CAR.d / 2, maxZ: CAR.d / 2, h: CAR.h,
+  wallTex: damask('#4d2f25', 'rgba(220,170,110,0.13)'), ceilColor: '#6b5442',
+  position: new THREE.Vector3(0, LEADS_Y, FACADE_Z - 0.25 - CAR.d / 2), rotY: Math.PI,
+  vent: { x: 0, y: (LIT.y0 + LIT.y1) / 2 - LEADS_Y, w: LIT.x1 - LIT.x0, h: LIT.y1 - LIT.y0 } });
+const glows = [];
+{
+  const backZ = FACADE_Z - 0.25 - CAR.d, velvet = new THREE.MeshStandardMaterial({ color: '#5a1a1c', roughness: 0.85 });
+  // curtains, drawn back to the sides of the window
+  for (const s of [-1, 1]) box(0.26, 1.42, 0.05, s * 0.66, (LIT.y0 + LIT.y1) / 2 + 0.03, FACADE_Z - 0.3, velvet);
+  // his fire: a chimneypiece and a live grate on the far wall
+  const marble = new THREE.MeshStandardMaterial({ color: '#c9bba3', roughness: 0.4 });
+  box(1.3, 1.1, 0.24, 0.9, LEADS_Y + 0.55, backZ + 0.12, marble);
+  box(1.45, 0.06, 0.32, 0.9, LEADS_Y + 1.13, backZ + 0.16, marble);
+  box(0.62, 0.56, 0.04, 0.9, LEADS_Y + 0.3, backZ + 0.26, new THREE.MeshStandardMaterial({ color: '#3a1606', emissive: '#ff6a1e', emissiveIntensity: 1.4 }));
+  const fire = new THREE.PointLight('#ff8a3c', 5, 2.6, 2); fire.position.set(0.9, LEADS_Y + 0.55, backZ + 0.45); scene.add(fire); glows.push({ L: fire, base: 5, seed: 3 });
+  const lamp = new THREE.PointLight('#ffb468', 3.5, 1.7, 2); lamp.position.set(0.85, LEADS_Y + 1.3, FACADE_Z - 0.9); scene.add(lamp);
+  carRoom.group.traverse(o => { if (o.isMesh && o.material.map) { o.material.emissive = new THREE.Color('#ffb070'); o.material.emissiveMap = o.material.map; o.material.emissiveIntensity = 0.32; } });
+  // stand-ins until carrisford.glb: a wing chair turned to the fire, a lamp on a table, a rug
+  const leather = new THREE.MeshStandardMaterial({ color: '#2f3a2a', roughness: 0.6 });
+  const chair = new THREE.Group(); chair.position.set(-0.15, LEADS_Y, -7.55); chair.rotation.y = -0.85; scene.add(chair);
+  box(0.72, 0.42, 0.68, 0, 0.21, 0, leather, chair); box(0.72, 0.78, 0.14, 0, 0.8, -0.3, leather, chair);
+  for (const s of [-1, 1]) box(0.12, 0.42, 0.5, s * 0.36, 0.62, -0.08, leather, chair);
+  const tableMat = new THREE.MeshStandardMaterial({ color: '#3a2318', roughness: 0.5 });
+  box(0.5, 0.04, 0.5, 0.85, LEADS_Y + 0.72, FACADE_Z - 0.9, tableMat); box(0.06, 0.7, 0.06, 0.85, LEADS_Y + 0.36, FACADE_Z - 0.9, tableMat);
+  const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.17, 0.2, 18, 1, true), new THREE.MeshStandardMaterial({ color: '#e8c98c', emissive: '#ffcf86', emissiveIntensity: 1.2, side: THREE.DoubleSide }));
+  shade.position.set(0.85, LEADS_Y + 1.12, FACADE_Z - 0.9); scene.add(shade);
+  plane(2.2, 1.6, 0.2, LEADS_Y + 0.006, FACADE_Z - 1.8, -Math.PI / 2, 0, new THREE.MeshStandardMaterial({ color: '#6a1f1c', roughness: 0.95 }));
+}
+// the warm light thrown back across the gap onto the leads: only felt when you are out there
+{
+  const spill = new THREE.PointLight('#ffb067', 0.8, 2.4, 2); spill.position.set(0, (LIT.y0 + LIT.y1) / 2, FACADE_Z + 0.35);
+  scene.add(spill); leads.lights.push({ L: spill, base: 0.8 });
+}
 
-  // small clues get a larger invisible hit area so the dot can't slip between grille bars
-  proxy(parts.ventilator, new THREE.BoxGeometry(0.26, 0.2, 0.08), 0, 0, 0.02);
-  proxy(parts.bell_rope, new THREE.CylinderGeometry(0.07, 0.07, 1.62, 8), 0, -0.8, 0);
-  proxy(parts.vent_back, new THREE.BoxGeometry(0.26, 0.2, 0.08), 0, 0, 0.02);
-  proxy(R('saucer_of_milk'), new THREE.CylinderGeometry(0.13, 0.13, 0.08, 12), 0, 0.02, 0);
-  // the lash's hit area goes wherever the lash itself is, whichever model is loaded
-  if (parts.dog_lash) {
-    roylott.group.updateMatrixWorld(true);
-    const c = new THREE.Box3().setFromObject(parts.dog_lash).getCenter(new THREE.Vector3());
-    parts.dog_lash.worldToLocal(c);
-    proxy(parts.dog_lash, new THREE.BoxGeometry(0.16, 0.4, 0.12), c.x, c.y, c.z);
-  }
+// ---------- sky, moon and the light they give ----------
+const MOON_DIR = new THREE.Vector3(0.12, 0.78, -0.62).normalize();   // high over the house opposite
+{
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(2.4, 48), new THREE.MeshBasicMaterial({ color: '#e9edf6', fog: false }));
+  disc.position.copy(MOON_DIR).multiplyScalar(90); disc.lookAt(0, 0, 0); scene.add(disc);
+  const halo = new THREE.Mesh(new THREE.CircleGeometry(7, 48), new THREE.MeshBasicMaterial({ color: '#8fa3cf', transparent: true, opacity: 0.12, fog: false, depthWrite: false }));
+  halo.position.copy(MOON_DIR).multiplyScalar(91); halo.lookAt(0, 0, 0); scene.add(halo);
+  const pos = [];
+  for (let i = 0; i < 260; i++) { const th = rand() * Math.PI * 2, y = 0.12 + rand() * 0.88, r = Math.sqrt(1 - y * y); pos.push(Math.cos(th) * r * 95, y * 95, Math.sin(th) * r * 95); }
+  scene.add(new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)),
+    new THREE.PointsMaterial({ color: '#cdd6f5', size: 1.6, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.85 })));
+}
+const hemi = new THREE.HemisphereLight('#8a98c0', '#2a2c36', 0.95); scene.add(hemi);   // cold is the default; warmth has to be earned
+// One moon for the whole scene, casting shadows: it lights the leads, and comes into each attic only through
+// its skylight, landing as a pale square on the boards. No light needs to be faked per room.
+const moon = new THREE.DirectionalLight('#b4c4e8', 2.3);
+moon.target.position.set(1.4, 0, -2.0); moon.position.copy(moon.target.position).addScaledVector(MOON_DIR, 14);
+moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048);
+Object.assign(moon.shadow.camera, { left: -7.5, right: 7.5, top: 7.5, bottom: -7.5, near: 1, far: 32 });
+moon.shadow.camera.updateProjectionMatrix(); moon.shadow.bias = -0.0004; moon.shadow.normalBias = 0.03;
+scene.add(moon, moon.target);
 
-  // The ventilators in the models sit almost flush with the wall, dark on dark, and can't be seen.
-  // Build a proper iron grille on each side: a black opening, a raised frame, and bars that catch the light.
-  const grilleMat = new THREE.MeshStandardMaterial({ color: '#8c8272', metalness: 0.55, roughness: 0.45 });
-  function buildGrille(room, src) {
-    if (!src) return null;
-    room.group.updateMatrixWorld(true);
-    const c = room.group.worldToLocal(new THREE.Box3().setFromObject(src).getCenter(new THREE.Vector3()));
-    src.traverse(o => { if (o.isMesh && !o.userData.proxy) o.visible = false; });   // hide the sunken original
-    const g = new THREE.Group(); g.position.set(c.x, c.y, room.minZ + 0.003);
-    const W = 0.32, H = 0.22;
-    const box = (w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), grilleMat); m.position.set(x, y, z); m.castShadow = true; g.add(m); };
-    box(W + 0.06, 0.03, 0.035, 0, H / 2 + 0.015, 0.017); box(W + 0.06, 0.03, 0.035, 0, -H / 2 - 0.015, 0.017);
-    box(0.03, H, 0.035, -W / 2 - 0.015, 0, 0.017); box(0.03, H, 0.035, W / 2 + 0.015, 0, 0.017);
-    for (let i = 1; i <= 5; i++) box(0.012, H, 0.015, -W / 2 + i * W / 6, 0, 0.012);
-    box(W, 0.01, 0.012, 0, 0, 0.012);
-    room.group.add(g);
-    return g;
-  }
-  // Dr. Roylott's chair and his side of the ventilator stand where the hole now comes through
-  for (const n of ['wooden_chair', 'chair_seat', 'ventilator_back']) { const o = R(n); if (o) o.position.x += (ROY_X - VENT.x) - 0.35; }
-  // the open window shutter swings to z 0.42; slide the bookcase along the wall clear of it
-  const SHELF_DZ = 1.05;
-  for (const n of ['bookshelf', 'books_red', 'books_green', 'book_gilt']) { const o = R(n); if (o && !(o.parent && o.parent.name === 'bookshelf')) o.position.z += SHELF_DZ; }
-  const grilleJ = buildGrille(julia, parts.ventilator), grilleR = buildGrille(roylott, parts.vent_back);
-  // a little light from the far side of each grille, so the opening reads as a way through to the next room
-  // (it lights only the far room's walls; a wall lit from behind stays dark on its own side)
-  for (const [room, other, z] of [[julia, roylott, -2.7], [roylott, julia, -1.9]]) {
-    const L = new THREE.PointLight('#ffb870', 0.9, 1.4, 2); L.position.set(VENT.x, VENT.y - 0.15, z); scene.add(L);
-    room.lights.push({ L, base: 0.9, fill: true });
-  }
-  const reg = (id, ...objs) => { const roots = objs.filter(Boolean); if (roots.length) examinables.push({ id, roots }); };
-  reg('bell_rope', J('bell_rope'), J('rope_hook'));
-  reg('ventilator', J('ventilator'), grilleJ);
-  reg('bed', J('bed'), J('bed_clamps'));
-  reg('chest', J('chest_of_drawers'));
-  reg('dressing', J('dressing_table'));
-  reg('safe', R('safe_body'), R('safe_door'));
-  reg('saucer', R('saucer_of_milk'));
-  reg('lash', R('dog_lash'));
-  // the seat is the part you look at; some models keep it inside the chair, others beside it
-  const seat = R('chair_seat'), chairObj = R('wooden_chair');
-  reg('chair', chairObj, seat && !(chairObj && chairObj.getObjectById(seat.id)) ? seat : null);
-  reg('vent_back', R('ventilator_back'), grilleR);
-  reg('camp_bed', R('camp_bed'));
-  reg('books', R('bookshelf'));
+// ---------- what is in the attics (stand-ins until attic_cold.glb: same footprints the model prompt asks for) ----------
+const CANDLE = 0.9;   // a candle-end: a small warm pool, not a lit room
+const ticking = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#8b8f95'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(38,50,78,0.45)'; for (let x = 0; x < w; x += 8) g.fillRect(x, 0, 3, h); });
+function mattress(room, x0, x1, z0, z1) {
+  const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, 0.12, d, 3, 0.04), new THREE.MeshStandardMaterial({ map: tiled(ticking, w, 1, 0.3), roughness: 0.95 }));
+  m.position.set(cx, 0.06, cz); m.castShadow = m.receiveShadow = true; room.group.add(m);
+  const blanket = new THREE.Mesh(new RoundedBoxGeometry(w - 0.04, 0.03, d * 0.62, 2, 0.012), new THREE.MeshStandardMaterial({ color: '#5a5048', roughness: 1 }));
+  blanket.position.set(cx, 0.13, z1 - d * 0.31 - 0.03); blanket.castShadow = blanket.receiveShadow = true; room.group.add(blanket);
+  room.colliders.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1 });
+}
+function stool(room, x, z) {
+  box(0.3, 0.03, 0.3, x, 0.435, z, woodMat, room.group);
+  for (const [dx, dz] of [[-0.1, -0.1], [0.1, -0.1], [0, 0.11]]) box(0.03, 0.42, 0.03, x + dx, 0.21, z + dz, woodMat, room.group);
+  room.colliders.push({ minX: x - 0.15, maxX: x + 0.15, minZ: z - 0.15, maxZ: z + 0.15 });
+}
+function candleEnd(room, x, y, z) {
+  const c = new THREE.Group(); c.position.set(x, y, z); room.group.add(c);
+  const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.012, 18), new THREE.MeshStandardMaterial({ color: '#6c6a66', metalness: 0.5, roughness: 0.5 }));
+  saucer.position.y = 0.006; c.add(saucer);
+  const wax = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.017, 0.045, 14), new THREE.MeshStandardMaterial({ color: '#e9e2cf', roughness: 0.6 }));
+  wax.position.y = 0.035; c.add(wax);
+  const flame = new THREE.Mesh(new THREE.SphereGeometry(0.009, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffd890' }));
+  flame.scale.set(1, 2.3, 1); flame.position.y = 0.075; flame.name = 'flame'; c.add(flame); flames.push(flame);
+  const L = new THREE.PointLight('#ffb35c', CANDLE, 2.6, 2); L.position.set(x, y + 0.1, z);
+  room.group.add(L); room.lights.push({ L, base: CANDLE, flicker: true, seed: rand() * 10 });
+}
+// a small iron grate in the back wall, long cold (clue 5 is found on its hearth once the fire is lit)
+function coldGrate(room, x) {
+  const z = ROOF.maxZ, top = room.ceilAt(z - 0.26) - 0.02;
+  const plaster = new THREE.MeshStandardMaterial({ map: tiled(limewashTex, 0.72, top, 1.4), roughness: 0.95 });
+  occluders.push(box(0.72, top, 0.26, x, top / 2, z - 0.13, plaster, room.group));
+  box(0.46, 0.5, 0.02, x, 0.27, z - 0.265, new THREE.MeshStandardMaterial({ color: '#0d0c0b', roughness: 1 }), room.group);
+  for (const y of [0.12, 0.17, 0.22, 0.27]) box(0.42, 0.012, 0.012, x, y, z - 0.285, iron, room.group);
+  box(0.86, 0.045, 0.12, x, 0.6, z - 0.31, woodMat, room.group);
+  box(0.8, 0.025, 0.3, x, 0.0125, z - 0.41, new THREE.MeshStandardMaterial({ color: '#4a4640', roughness: 0.9 }), room.group);
+  room.colliders.push({ minX: x - 0.43, maxX: x + 0.43, minZ: z - 0.56, maxZ: z });
+}
+mattress(sara, -1.5, -0.65, -1.0, 0.9);
+stool(sara, -0.4, 0.2);
+candleEnd(sara, -0.4, 0.45, 0.2);
+coldGrate(sara, -0.7);
+mattress(becky, 0.45, 1.3, -1.0, 0.9);
 
-  addCandle(julia, candle.scene, -1.72, 1.0, 0.55, 0.4, true);
-  addCandle(julia, candle.scene, 1.72, 0.757, -0.9, 2.2, false);
-  addCandle(roylott, candle.scene, -0.72, 0.72, 1.0, 1.0, true);
-  addCandle(roylott, candle.scene, 2.02, 0.9, 0.8 + SHELF_DZ, 2.6, false);
-  // his room has no wallpaper to bounce light; a dim ceiling fill keeps the safe and chair readable
-  const fillR = new THREE.PointLight('#c9b79a', 2.0, 9, 1.3); fillR.position.set(0.6, 2.4, -0.9); roylott.group.add(fillR); roylott.lights.push({ L: fillR, base: 2.0 });
-  // and a soft fill in Julia's room, so the fireplace and door wall aren't lost in shadow
-  const fillJ = new THREE.PointLight('#d8c4a0', 1.4, 8, 1.3); fillJ.position.set(0.2, 2.4, 0.9); julia.group.add(fillJ); julia.lights.push({ L: fillJ, base: 1.4, fill: true });
+const saraDoor = addDoor(sara, 0.85, ROOF.maxZ - 0.026, Math.PI);
+const beckyDoor = addDoor(becky, -0.65, ROOF.maxZ - 0.026, Math.PI);
 
-  // ---- Helen Stoner waits by the fireplace in her sister's room ----
-  const helen = hel.scene;
-  fixJoints(helen, [['head', 'head_skin', 'bottom'], ['arm_left', 'arm_left_sleeve', 'top'], ['arm_right', 'arm_right_sleeve', 'top'],
-    ['arm_left_forearm', 'arm_left_forearm_sleeve', 'top'], ['arm_right_forearm', 'arm_right_forearm_sleeve', 'top']]);
-  helen.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  helen.position.set(-0.95, 0, 1.25); helen.rotation.y = 2.1;   // facing into the room, toward the door
-  julia.group.add(helen);
-  const H = n => helen.getObjectByName(n);
-  helenRig = { root: helen, head: H('head'), body: H('body'), armL: H('arm_left'), armR: H('arm_right'),
-    foreL: H('arm_left_forearm'), foreR: H('arm_right_forearm'), eyes: [], yaw: 0, pitch: 0, gesture: 0, talk: 0, blink: 2, blinkT: 0 };
-  for (const k of ['head', 'body', 'armL', 'armR', 'foreL', 'foreR']) if (helenRig[k]) helenRig[k].userData.q0 = helenRig[k].quaternion.clone();
-  if (helenRig.body) helenRig.body.userData.s0 = helenRig.body.scale.clone();
-  // her eyes pivot from the neck; give each a pivot at its own centre so a blink squashes in place
-  helen.updateMatrixWorld(true);
-  for (const n of ['eye_left', 'eye_right']) {
-    const eye = H(n); if (!eye) continue;
-    const c = new THREE.Box3().setFromObject(eye).getCenter(new THREE.Vector3());
-    const pivot = new THREE.Group(); eye.parent.add(pivot);
-    pivot.position.copy(eye.parent.worldToLocal(c)); pivot.updateMatrixWorld(true);
-    pivot.attach(eye); helenRig.eyes.push(pivot);
-  }
-  examinables.push({ id: 'helen', roots: [helen] });
+const rooms = [sara, becky, leads];
+// where you stand on arriving in each room (room coordinates), and what you face
+sara.entries = { start: { pos: [0.6, 0.55], look: [0, -1.3], pitch: 0.16 }, door: { pos: [0.85, 1.2], look: [0, -0.6] }, skylight: { pos: [0, -1.2], look: [0.3, 1.0] } };
+becky.entries = { door: { pos: [-0.65, 1.2], look: [0, -0.6] } };
+leads.entries = { skylight: { pos: [-LCX, -2.42 - LCZ], look: [-LCX, FACADE_Z - LCZ], pitch: 0.03 } };
+examinables.push({ id: 'door_becky', room: 0, roots: [saraDoor] });
+examinables.push({ id: 'door_back', room: 1, roots: [beckyDoor] });
+examinables.push({ id: 'skylight_out', room: 0, roots: [sara.skylight.lining, sara.skylight.inside] });
+examinables.push({ id: 'skylight_in', room: 2, roots: [sara.skylight.kerb, sara.skylight.outside] });
+scene.updateMatrixWorld(true);
 
-  // ---- the swamp adder: hidden until the night watch ----
-  {
-    const root = snk.scene; root.visible = false;
-    root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material = o.material.clone(); } });
-    const segs = [1, 2, 3, 4, 5, 6].map(i => root.getObjectByName('seg_' + i));
-    // distance from the tip of the snout back to each joint (snout at z 0.5, joints at 0.35, 0.18, 0.01, -0.16, -0.33)
-    adder = { root, segs, joints: [0.15, 0.32, 0.49, 0.66, 0.83], tongue: root.getObjectByName('tongue'), headY: 2.42 };
-    for (const sg of segs) if (sg) sg.userData.q0 = sg.quaternion.clone();
-    // The snake is drawn as one smooth body that slides along a curve (out of the ventilator, round the rope, round
-    // Roylott's head) instead of six stiff pieces bending at their joints. Bake the model, lying straight, into one
-    // shape with its snout toward +X; the original stays hidden and only its "visible" flag is used.
-    root.updateMatrixWorld(true);
-    const inv = root.matrixWorld.clone().invert(), geos = [], mats = [];
-    root.traverse(o => {
-      if (!o.isMesh) return;
-      let g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
-      if (g.index) g = g.toNonIndexed();
-      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
-      geos.push(g); mats.push(o.material); o.visible = false;
-    });
-    const body = mergeGeometries(geos, true); body.rotateY(Math.PI / 2);
-    const flow = new Flow(new THREE.Mesh(body, mats)); flow.uniforms.spineOffset.value = 0;
-    flow.object3D.traverse(o => { o.frustumCulled = false; o.castShadow = false; });
-    flow.object3D.visible = false; scene.add(flow.object3D);   // kept at the scene root: its curve is in world space
-    Object.assign(adder, { flow, mode: 'rope', curveMode: null, rope: null });
-    buildSnakePath(ropeAxis);
-    root.rotation.x = Math.PI / 2;
-    julia.group.add(root);
-  }
-  // ---- Holmes's cane, held in view during the watch ----
-  {
-    const m = cn.scene; m.traverse(o => { if (o.isMesh) o.castShadow = false; });
-    m.position.set(0, -0.888, -0.05);   // hold it by the handle
-    caneHold = new THREE.Group(); caneHold.add(m); caneHold.visible = false;
-    caneHold.position.set(0.26, -0.36, -0.45);
-    camera.add(caneHold);
-  }
-
-  // ---- Dr. Grimesby Roylott: waits out of sight in the corridor until his moment ----
-  const man = grim.scene;
-  fixJoints(man, [['head', 'neck', 'bottom'], ['eye_left', 'eye_left', 'center'], ['eye_right', 'eye_right', 'center'],
-    ['arm_left', 'sleeve_left', 'top'], ['arm_right', 'sleeve_upper_right', 'top'], ['elbow_right', 'sleeve_forearm_right', 'top'],
-    ['leg_left', 'thigh_left', 'top'], ['leg_right', 'thigh_right', 'top']]);
-  man.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  man.position.set(2.55, 0, 1.5); man.rotation.y = -Math.PI / 2; man.visible = false;   // in the corridor, facing the door
-  julia.group.add(man);
-  const G = n => man.getObjectByName(n);
-  roy = { root: man, head: G('head'), body: G('body'), armR: G('arm_right'), elbowR: G('elbow_right'), armL: G('arm_left'),
-    eyes: [G('eye_left'), G('eye_right')].filter(Boolean), state: 'waiting', t: 0, wait: 0, yaw: 0, threat: 0, strike: 0, blink: 3, blinkT: 0, done: false };
-  for (const k of ['head', 'body', 'armR', 'elbowR', 'armL']) if (roy[k]) roy[k].userData.q0 = roy[k].quaternion.clone();
-  for (const e of roy.eyes) e.userData.s0 = e.scale.clone();
-  roy.collider = { minX: 1.45, maxX: 2.05, minZ: 1.15, maxZ: 1.85 };
-  // lamplight from the corridor, only while the door stands open
-  roy.lamp = new THREE.PointLight('#ffb870', 0, 6, 1.4); roy.lamp.position.set(1.3, 1.95, 1.5); julia.group.add(roy.lamp);
-  julia.colliders.push({ minX: -1.25, maxX: -0.65, minZ: 0.95, maxZ: 1.55 });
-
-  // collision boxes from each model's measured footprint (room-local metres)
-  julia.colliders.push(
-    { minX: -0.5, maxX: 0.5, minZ: -2.252, maxZ: -0.27 },     // bed
-    { minX: -2.05, maxX: -1.47, minZ: -0.16, maxZ: 0.86 },    // chest of drawers
-    { minX: 1.5, maxX: 2.05, minZ: -1.06, maxZ: -0.04 },      // dressing table
-    { minX: 1.38, maxX: 1.86, minZ: 0.26, maxZ: 0.74 });      // wicker chair
-  roylott.colliders.push(
-    { minX: -2.25, maxX: -1.3, minZ: -2.25, maxZ: -0.2 },     // camp bed
-    { minX: -2.25, maxX: -1.19, minZ: 0.06, maxZ: 1.04 },     // armchair
-    { minX: -1.06, maxX: -0.44, minZ: 0.74, maxZ: 1.36 },     // round table
-    { minX: -0.88, maxX: -0.42, minZ: -2.25, maxZ: -1.69 },   // wooden chair, under the ventilator
-    { minX: 1.0, maxX: 1.7, minZ: -2.25, maxZ: -1.57 },       // safe
-    { minX: 1.9, maxX: 2.25, minZ: 0.03 + SHELF_DZ, maxZ: 1.07 + SHELF_DZ }); // bookshelf, clear of the shutter
-
-  for (const ex of examinables) {
-    ex.meshes = [];
-    for (const r of ex.roots) r.traverse(o => { if (o.isMesh) { if (!o.userData.proxy) o.material = o.material.clone(); o.userData.ex = ex; ex.meshes.push(o); } });
-  }
-  setRoomLights(0);
-  ready = true;
-  updateHud();
-  setIntroState(prologueSeen() ? 'story' : 'prologue');
-}).catch(err => {
-  console.error(err);
-  loadFailed = true;
-  $('status').textContent = 'The house didn\'t finish loading. Check your connection and reload.';
-  const btn = $('begin'); btn.disabled = false; btn.textContent = 'Reload the game';
-  btn.onclick = () => location.reload();
-});
-
-// ---------- what Holmes notices ----------
-const KEY = ['bell_rope', 'ventilator', 'bed', 'safe', 'saucer', 'lash', 'chair'];
 const CLUES = {
-  bell_rope: { verb: 'Pull the bell-rope', title: 'A bell-rope that rings no bell',
-    text: 'I give it a sharp pull. Nothing. It is a dummy, fastened to a hook just above the ventilator, with no wire behind it. Miss Stoner says it was put up two years ago, shortly before her sister died. Why hang a bell-pull where no bell will ring?' },
-  ventilator: { verb: 'Examine the ventilator', title: 'A ventilator to nowhere',
-    text: 'A small grille, high in the wall. It does not open to the air outside, as any honest ventilator would. It opens into the next room: Dr. Roylott\'s. Built at the same time as the rope, and only a few inches from it.' },
-  bed: { verb: 'Examine the bed', title: 'The bed is bolted down',
-    text: 'Clamped to the floor at all four feet. It cannot be moved an inch. Whoever sleeps here must lie exactly beneath the rope and the ventilator, whether she likes it or not.' },
-  window: { verb: 'Examine the window', title: 'Barred and shuttered',
-    text: 'Iron bars, heavy shutters, and a bolt that Julia fastened every night. The shutters were bolted on the night she died. Nobody came in by the window.' },
-  chimney: { verb: 'Examine the fireplace', title: 'A chimney stapled shut',
-    text: 'Wide enough, but barred across by four large iron staples. Nothing came down the chimney, either. The danger, then, was already inside the house.' },
-  chest: { verb: 'Open the top drawer', title: 'A box of matches',
-    text: 'Julia\'s things, kept by her sister. A box of matches. When they found her, she held the burnt stump of a match in one hand and the box in the other. She had struck a light to see something in the room.' },
-  dressing: { verb: 'Open the dressing-table drawer', title: 'Nothing out of place',
-    text: 'Combs, ribbons, a hand-glass. A young lady\'s table, kept neat. Whatever happened in this room, it did not happen here.' },
-  safe: { verb: 'Try the safe', title: 'A safe kept locked',
-    text: 'A large iron safe, locked fast. Miss Stoner says it holds her stepfather\'s business papers; she saw inside it once, years ago. I tap the side. "There isn\'t a cat in it, for example?" She laughs at the idea. I do not.' },
-  saucer: { verb: 'Examine the saucer', title: 'A saucer of milk, and no cat',
-    text: 'A saucer of milk, set on top of the safe. There is no cat in this house. Dr. Roylott keeps a cheetah and a baboon loose in the grounds, and neither of them takes its milk from a saucer on a safe. So who is it for?' },
-  lash: { verb: 'Examine the dog lash', title: 'A lash tied into a loop',
-    text: 'A small dog lash hung on the corner of the bed. The end is curled upon itself and tied so as to make a loop of whipcord. There is no dog here. A loop like that is for holding something at arm\'s length.' },
-  chair: { verb: 'Examine the wooden chair', title: 'Someone stands on this chair',
-    text: 'Through my lens: the seat is marked by the boots of someone who has stood on it, and more than once. It sits directly beneath the ventilator, the only thing in the room that could put a man\'s hands within reach of it.' },
-  vent_back: { verb: 'Examine the ventilator', title: 'The other side of the ventilator',
-    text: 'The same small grille, from his side. Whatever passes through here comes out a few inches from the hook that holds the dummy rope, which hangs straight down to Julia\'s pillow.' },
-  camp_bed: { verb: 'Examine the camp bed', title: 'A soldier\'s bed',
-    text: 'A plain camp bed. A man who lives like this cares little for comfort. His spending goes elsewhere: to his animals, and to keeping the money his stepdaughters would take away from him if they married.' },
-  books: { verb: 'Examine the books', title: 'A doctor\'s shelf',
-    text: 'Books mostly of a technical character. Dr. Roylott practised medicine in Calcutta for years, and brought more than books home from India.' },
-  door_out: { verb: 'Go to Dr. Roylott\'s room', title: '', text: '' },
-  door_back: { verb: 'Go back to Julia\'s bedroom', title: '', text: '' },
-  helen: { verb: 'Talk to Helen', title: '', text: '' },
-  // what Helen tells you (testimony)
-  whistle: { testimony: true, title: 'A low, clear whistle', text: 'Julia asked her sister, days before she died, whether she had heard a low, clear whistle in the dead of night, about three in the morning. Helen heard it herself last night.' },
-  last_words: { testimony: true, title: '"The speckled band!"', text: 'Julia staggered out of her room, her face blanched with terror, and cried: "Oh, my God! Helen! It was the band! The speckled band!" She tried to point toward the doctor\'s room, then fell.' },
-  clang: { testimony: true, title: 'A clang, as of metal falling', text: 'On the night Julia died, just after the whistle, Helen heard a clanging sound, as if a mass of metal had fallen. It came from the direction of his room.' },
-  cigars: { testimony: true, title: 'Smoke through the grille', text: 'Julia complained that the smell of his strong Indian cigars came into her room every night. The ventilator carries more than air from his room to hers.' },
-  animals: { testimony: true, title: 'Animals from India', text: 'Dr. Roylott boasted that a correspondent in India sends him Indian animals. The cheetah and the baboon are only the ones he lets the village see.' },
-  motive: { testimony: true, title: 'Money, and a wedding', text: 'Their mother left her money to Dr. Roylott on condition that each daughter receive a yearly share on marrying. Julia died two weeks before her wedding. Helen is to be married this spring.' },
+  door_becky: { verb: 'Go to Becky\'s attic' },
+  door_back: { verb: 'Go back to your attic' },
+  skylight_out: { verb: 'Climb out onto the leads' },
+  skylight_in: { verb: 'Climb back in' },
 };
-const found = new Set();
-const keyFound = () => KEY.filter(k => found.has(k)).length;
 
 // ---------- player ----------
-const EYE = 1.72, PR = 0.22;
-const player = { x: 1.5, z: 1.5, yaw: 0.5, pitch: -0.12, room: 0 };
+const start = sara.entries.start;
+const player = { x: start.pos[0], z: start.pos[1], yaw: Math.atan2(-(start.look[0] - start.pos[0]), -(start.look[1] - start.pos[1])), pitch: start.pitch, room: 0 };
 const keys = {};
-let playing = false, cardOpen = false, nbOpen = false, moving = false;
+let playing = false, cardOpen = false, moving = false;
 const tmp = new THREE.Vector3();
 
 function blocked(x, z) {
   const r = rooms[player.room];
-  r.group.worldToLocal(tmp.set(x, 0, z));
+  r.group.worldToLocal(tmp.set(x, r.group.position.y, z));
   const lx = tmp.x, lz = tmp.z;
   if (lx < r.minX + PR || lx > r.maxX - PR || lz < r.minZ + PR || lz > r.maxZ - PR) return true;
+  if (r.ceilAt && r.ceilAt(lz) < EYE + 0.12) return true;   // under the slope: you would knock your head
   for (const b of r.colliders) if (lx > b.minX - PR && lx < b.maxX + PR && lz > b.minZ - PR && lz < b.maxZ + PR) return true;
   return false;
 }
 // only the room you're in is lit (its lights would otherwise shine through the shared wall)
 function setRoomLights(i) { rooms.forEach((r, k) => r.lights.forEach(l => { l.on = k === i; l.L.visible = l.on; })); }
 
-function goTo(i) {
+function goTo(i, at) {
   if (moving) return;
   moving = true; $('fade').classList.add('on');
   setTimeout(() => {
+    const r = rooms[i], e = r.entries[at] || r.entries.door;
     player.room = i;
-    // stand just inside the room's door, facing in
-    const local = i === 0 ? new THREE.Vector3(1.5, 0, 1.5) : new THREE.Vector3(-1.75, 0, 1.65);
-    const look = rooms[i].group.localToWorld(i === 0 ? new THREE.Vector3(0, 0, -1.2) : new THREE.Vector3(-0.3, 0, -1.4));
-    rooms[i].group.localToWorld(local);
-    player.x = local.x; player.z = local.z;
-    player.yaw = Math.atan2(-(look.x - local.x), -(look.z - local.z)); player.pitch = -0.1;   // facing into the room
+    const p = r.group.localToWorld(new THREE.Vector3(e.pos[0], 0, e.pos[1]));
+    const look = r.group.localToWorld(new THREE.Vector3(e.look[0], 0, e.look[1]));
+    player.x = p.x; player.z = p.z;
+    player.yaw = Math.atan2(-(look.x - p.x), -(look.z - p.z)); player.pitch = e.pitch ?? -0.1;
     setRoomLights(i);
     $('fade').classList.remove('on');
-    showWhere(rooms[i].name);
+    showWhere(r.name);
     setTimeout(() => { moving = false; }, 300);
   }, 480);
 }
@@ -569,17 +555,7 @@ function showWhere(text) { const w = $('where'); w.textContent = text; w.classLi
 
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
-  if (cut.active) { if (k === 'escape') { e.preventDefault(); $('cineSkip').click(); } return; }
-  if (k === 'tab') { e.preventDefault(); if (playing) toggleNotebook(); return; }
-  if (deduceOpen) { if (k === 'escape') { e.preventDefault(); closeDeduce(); } return; }
-  if (night.phase !== 'off' && !cardOpen && (k === 'e' || k === ' ' || k === 'enter')) { e.preventDefault(); strike(); return; }
-  if (talkOpen) {
-    if (k === 'escape') { e.preventDefault(); closeTalk(); return; }
-    if (/^[1-9]$/.test(k)) { const b = talkButtons[Number(k) - 1]; if (b) { e.preventDefault(); b.click(); } return; }
-    return;   // no walking while talking
-  }
   if (cardOpen && (k === 'e' || k === 'escape' || k === 'enter' || k === ' ')) { e.preventDefault(); closeCard(); return; }
-  if (k === 'escape' && nbOpen) { toggleNotebook(false); return; }
   keys[k] = true;
   if (k === 'e' && playing) examine();
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
@@ -600,7 +576,7 @@ let skipMoves = 0;
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === cvs;
   skipMoves = 2;   // browsers often report one huge jump right as the mouse is captured
-  if (!locked && playing && !cardOpen && !talkOpen && !deduceOpen && !isTouch) showWhere('Click the room to look around with the mouse');
+  if (!locked && playing && !cardOpen && !isTouch) showWhere('Click the room to look around with the mouse');
 });
 document.addEventListener('mousemove', e => {
   if (!locked) return;
@@ -609,7 +585,7 @@ document.addEventListener('mousemove', e => {
   player.yaw -= e.movementX * 0.0024;
   player.pitch = THREE.MathUtils.clamp(player.pitch - e.movementY * 0.0024, -1.3, 1.1);
 });
-cvs.addEventListener('pointerdown', e => { cvs.focus(); if (locked) { if (night.phase !== 'off' && !cardOpen) strike(); return; } drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; cvs.setPointerCapture(e.pointerId); });
+cvs.addEventListener('pointerdown', e => { cvs.focus(); if (locked) return; drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; cvs.setPointerCapture(e.pointerId); });
 cvs.addEventListener('pointermove', e => {
   if (locked || !drag || drag.id !== e.pointerId || cardOpen) return;
   const s = isTouch ? 0.006 : 0.0042, dx = e.clientX - drag.x, dy = e.clientY - drag.y;
@@ -639,11 +615,10 @@ if (isTouch) $('help').hidden = true;
 
 $('begin').addEventListener('click', () => {
   if (!ready) return;
-  if (introState === 'prologue') { startCutscene(); return; }
   audioOn();
   $('intro').hidden = true; playing = true; cvs.focus();
   if (isTouch) joy.hidden = false;
-  showWhere(julia.name);
+  showWhere(rooms[player.room].name);
   lockMouse();
 });
 
@@ -651,282 +626,45 @@ $('begin').addEventListener('click', () => {
 const ray = new THREE.Raycaster(); ray.far = 2.7;
 const center = new THREE.Vector2(0, 0);
 let target = null;
-const anim = { rope: 0, ropeV: 0, safe: 0, drawers: {} };
 let hitList = null;
 
+function finishExaminables() {
+  for (const ex of examinables) {
+    ex.meshes = [];
+    for (const r of ex.roots) r.traverse(o => { if (o.isMesh) { if (!o.userData.proxy) o.material = o.material.clone(); o.userData.ex = ex; ex.meshes.push(o); } });
+  }
+  hitList = null;
+}
 function pickTarget() {
-  if (!ready || cardOpen || talkOpen || deduceOpen || moving || night.phase !== 'off') return null;
+  if (!ready || cardOpen || moving) return null;
   if (!hitList) { const set = new Set(occluders); for (const ex of examinables) for (const m of ex.meshes) set.add(m); hitList = [...set]; }
   ray.setFromCamera(center, camera);
   for (const h of ray.intersectObjects(hitList, false)) {
     if (h.object.material && h.object.material.visible === false && !h.object.userData.proxy) continue;
-    return h.object.userData.ex || null;   // first solid thing decides; walls block what is behind them
+    const ex = h.object.userData.ex;   // first solid thing decides; walls block what is behind them
+    return ex && (ex.room === undefined || ex.room === player.room) ? ex : null;   // the same skylight means different things from each side
   }
   return null;
 }
 function setGlow(ex, amount) {
-  if (!ex || ex.id === 'helen') return;   // people get the prompt, not a glow
+  if (!ex || ex.person) return;   // people get the prompt, not a glow
   for (const m of ex.meshes) { if (m.userData.proxy || !m.material.emissive) continue; m.material.emissive.set('#e8a64a'); m.material.emissiveIntensity = amount; }
 }
 function examine() {
-  if (!target || cardOpen || talkOpen || deduceOpen || moving) return;
+  if (!target || cardOpen || moving) return;
   const id = target.id;
-  if (id === 'helen') return openTalk('helen');
-  if (id === 'door_out') return goTo(1);
-  if (id === 'door_back') return goTo(0);
-  const c = CLUES[id];
-  if (id === 'bell_rope') anim.ropeV = 2.4;
-  if (id === 'safe') anim.safe = 1;
-  if (id === 'chest') anim.drawers.chest_drawer_1a = 1;
-  if (id === 'dressing') anim.drawers.dressing_table_drawer = 1;
-  const isNew = !found.has(id);
-  found.add(id);
-  $('cardTitle').textContent = c.title;
-  $('cardText').textContent = c.text;
-  $('cardTag').textContent = KEY.includes(id) ? (isNew ? `Key evidence · ${keyFound()} of 7` : 'Key evidence · already noted') : (isNew ? 'Added to notebook' : 'Already noted');
-  openCard();
-  updateHud();
+  if (id === 'door_becky') return goTo(1, 'door');
+  if (id === 'door_back') return goTo(0, 'door');
+  if (id === 'skylight_out') return goTo(2, 'skylight');
+  if (id === 'skylight_in') return goTo(0, 'skylight');
 }
 function openCard() { $('card').hidden = false; cardOpen = true; $('cardClose').focus({ preventScroll: true }); }
-
-const milestones = [
-  { when: () => ['bell_rope', 'ventilator', 'bed'].every(k => found.has(k)), shown: false,
-    title: 'Three facts, one line between them',
-    text: 'A ventilator into the next room. A rope that rings nothing, hanging from it straight down to the pillow. A bed that cannot be moved from beneath them. Whatever came for Julia Stoner came that way. The door will take me to the room on the other side of that wall.',
-    tag: 'Julia\'s room searched · now Dr. Roylott\'s' },
-  { when: () => ['safe', 'saucer', 'lash', 'chair'].every(k => found.has(k)), shown: false,
-    title: 'What does he keep in the safe?',
-    text: 'A saucer of milk, with no cat to drink it. A whipcord loop, with no dog to hold. A chair worn by a man standing beneath the ventilator. And an iron safe he keeps locked. Whatever lives in that safe, he feeds it, he handles it at arm\'s length, and he lifts it to the grille.',
-    tag: 'Step 2 complete · Helen Stoner comes next' },
-  { when: () => ['last_words', 'clang', 'motive'].every(k => found.has(k)), shown: false,
-    title: 'Helen\'s account',
-    text: 'A low whistle in the night. A metallic clang, like a heavy door swinging shut. A dying girl\'s last words: the speckled band. And a stepfather who loses a fortune each time a stepdaughter marries. Helen is to be married this spring. If I am right, the danger to her is not two years old. It is tonight.',
-    tag: 'Step 4 complete · Dr. Roylott comes next' },
-  { when: () => roy && roy.done, shown: false,
-    title: 'A dangerous man',
-    text: 'He came to frighten me off, and told me I am on the right road. A man with nothing to hide does not threaten the detective. He keeps something in that safe that drinks milk, that he handles with a loop of whipcord, and that came to him from India. Before I name it, I must set the facts in order.',
-    tag: 'Step 5 complete · The deduction comes next' },
-];
-function nextMilestone() {
-  const m = milestones.find(m => !m.shown && m.when());
-  if (!m) return;
-  m.shown = true;
-  setTimeout(() => { $('cardTitle').textContent = m.title; $('cardText').textContent = m.text; $('cardTag').textContent = m.tag; openCard(); }, 350);
-}
-function closeCard() {
-  $('card').hidden = true; cardOpen = false; cvs.focus();
-  if (night.onCardClose) { const f = night.onCardClose; night.onCardClose = null; f(); return; }
-  if (deduction.solved && !deduction.announced) { deduction.announced = true; setTimeout(startNight, 400); return; }
-  const before = milestones.filter(m => m.shown).length;
-  nextMilestone();
-  // straight after "A dangerous man", Holmes sits down to reason it out
-  if (milestones.filter(m => m.shown).length === before && roy && roy.done && !deduction.solved && !deduction.autoOpened) {
-    deduction.autoOpened = true; setTimeout(openDeduce, 400);
-  }
-}
-
-// ---------- step 7: the night watch ----------
-const night = { phase: 'off', t: 0, said: {}, onCardClose: null, swing: 0, misses: 0 };
-const ventGlow = new THREE.PointLight('#ffcf8a', 0, 2.5, 2); ventGlow.position.set(0.45, 2.35, -2.0);
-const lantern = new THREE.PointLight('#e8a050', 0, 3.5, 1.6); lantern.position.set(0.85, 0.6, -1.35);
-// a shaft of moonlight from the barred window onto the rope and the pillow, so the snake can be seen
-const moonbeam = new THREE.SpotLight('#9fb4d6', 0, 0, 0.42, 0.75, 1.2); moonbeam.position.set(-1.6, 2.5, -1.4); moonbeam.target.position.set(0.2, 1.4, -2.1);
-function startNight() {
-  if (night.phase !== 'off') return;
-  night.phase = 'intro';
-  if (document.pointerLockElement) document.exitPointerLock();
-  $('fade').classList.add('on');
-  setTimeout(() => {
-    // Julia's room by night: candles out, a shaded lantern on the floor, moonlight through the bars
-    player.room = 0; setRoomLights(0);
-    for (const l of julia.lights) { if (l.flicker || l.fill) { l.on = false; l.L.visible = false; } else { l.L.color.set('#6e86a8'); l.L.intensity = 5; } }
-    julia.group.add(ventGlow, lantern, moonbeam, moonbeam.target); lantern.intensity = 1.6; moonbeam.intensity = 9;
-    hemi.intensity = 0.22; scene.fog.color.set('#07080b'); scene.fog.density = 0.07;
-    for (const f of flames) f.visible = false;
-    if (helenRig) { helenRig.root.visible = false; const i = julia.colliders.findIndex(c => c.minX === -1.25); if (i >= 0) julia.colliders.splice(i, 1); }
-    if (roy && !roy.done) { roy.state = 'gone'; roy.done = true; roy.root.visible = false; }
-    // Holmes sits beside the bed, facing the rope and the ventilator
-    player.x = 0.95; player.z = -1.15; player.eye = 1.25;
-    const dx = 0.25 - player.x, dz = -2.1 - player.z; player.yaw = Math.atan2(-dx, -dz); player.pitch = 0.18;
-    caneHold.visible = true;
-    $('dbtn').hidden = true;
-    $('fade').classList.remove('on');
-    $('cardTitle').textContent = 'The night watch';
-    $('cardText').textContent = 'Miss Stoner has gone back to her old room. I have put out the candles and shaded the lantern, and I sit beside the bed in the dark with my cane across my knees. I must not move, and I must not sleep. Whatever comes, it comes by the ventilator.';
-    $('cardTag').textContent = 'Watch the ventilator · strike the rope when it comes';
-    night.onCardClose = () => { night.phase = 'wait'; night.t = 0; night.said = {}; };
-    openCard();
-  }, 600);
-}
-function caption(key, text) { if (night.said[key]) return; night.said[key] = true; showWhere(text); }
-function strike() {
-  if (cardOpen) return;
-  night.swing = 1;
-  if (night.phase === 'snake' && adder.headY < 2.3) {
-    night.phase = 'retreat'; night.t = 0;
-    caption('struck', 'I lash at it again and again with my cane');
-  } else if (night.phase === 'wait' || night.phase === 'gleam' || night.phase === 'hiss') {
-    caption('early' + Math.floor(night.t), 'Not yet. Keep still, and wait.');
-  }
-}
-function resetSnake() { adder.headY = 2.42; adder.root.visible = false; adder.mode = 'rope'; }
-// The snake's road in Julia's room (her room sits at the world origin): from deep inside the wall, out through the
-// grille, across to the rope, then spiralling down around the rope to the pillow.
-function buildSnakePath(axis) {
-  const V = THREE.Vector3, gx = 0.45, gy = 2.40, gz = -2.24, P = [];
-  P.push(new V(gx, 1.2, -3.0), new V(gx, 1.85, -2.9), new V(gx, 2.3, -2.65), new V(gx, gy, -2.42), new V(gx, gy, gz),   // up from his chair, through the wall
-         new V(gx - 0.01, gy - 0.03, gz + 0.08), new V(gx - 0.09, gy - 0.12, gz + 0.12));
-  const r = 0.045, y0 = axis.top.y - 0.2, y1 = axis.bottom.y + 0.06;
-  for (let k = 0, y = y0; y >= y1; k++, y -= 0.055) {
-    const f = (axis.top.y - y) / (axis.top.y - axis.bottom.y), a = k * 0.7;
-    const cx = axis.top.x + (axis.bottom.x - axis.top.x) * f, cz = axis.top.z + (axis.bottom.z - axis.top.z) * f;
-    P.push(new V(cx + Math.cos(a) * r, y, cz + Math.sin(a) * r));
-  }
-  P.push(new V(axis.bottom.x + 0.03, axis.bottom.y + 0.03, axis.bottom.z + 0.13));   // the head comes to rest on the pillow
-  const curve = new THREE.CatmullRomCurve3(P, false, 'centripetal'), L = curve.getLength();
-  const N = 1600, ys = new Float32Array(N + 1); let uGrille = 0;
-  for (let i = 0; i <= N; i++) { const p = curve.getPointAt(i / N); ys[i] = p.y; if (!uGrille && p.z >= gz) uGrille = i; }
-  adder.rope = { curve, L, ys, N, iGrille: uGrille, sGrille: uGrille / N * L };
-}
-// how far along the road the snout is, for a given snout height (headY is what the night watch and prologue animate)
-function ropeS(headY) {
-  const R = adder.rope;
-  if (headY >= 2.40) return R.sGrille - (headY - 2.40) * 2.5;   // still inside the wall
-  for (let i = R.iGrille; i <= R.N; i++) if (R.ys[i] <= headY) return i / R.N * R.L;
-  return R.L;
-}
-function updateSnake() {
-  const a = adder; if (!a || !a.flow || !a.rope) return;
-  a.flow.object3D.visible = a.root.visible; if (!a.root.visible) return;
-  if (a.mode === 'ring') return;   // posed once in seatRoylott
-  if (a.curveMode !== 'rope') { a.flow.updateCurve(0, a.rope.curve); a.curveMode = 'rope'; }
-  const s = THREE.MathUtils.clamp(ropeS(a.headY), 1.0, a.rope.L);
-  a.flow.uniforms.pathOffset.value = (s - 0.5) / a.rope.L;   // snout at s, tail a metre behind it
-}
-function poseSnakeOnRope() { /* the snake now follows its path in updateSnake() */ }
-function tickNight(dt) {
-  night.t += dt;
-  const t = night.t;
-  // the cane: resting across the knees, raised and brought down hard on a strike
-  night.swing = Math.max(0, night.swing - dt * 2.2);
-  const lift = Math.sin(night.swing * Math.PI);
-  if (caneHold) { caneHold.rotation.set(Math.PI / 2 - 0.25 + lift * 0.9, 0, 0.35 - lift * 0.2); caneHold.position.z = -0.45 - lift * 0.12; }
-  if (night.phase === 'wait') {
-    if (t > 1) caption('m', 'Midnight. Far off, the church clock strikes');
-    if (t > 6) caption('1', 'One o\'clock');
-    if (t > 10) caption('2', 'Two o\'clock. Somewhere outside, the cheetah\'s cry');
-    if (t > 14) caption('3', 'Three o\'clock');
-    if (t > 17) { night.phase = 'gleam'; night.t = 0; caption('g', 'A gleam of light at the ventilator, and a smell of hot metal'); }
-  } else if (night.phase === 'gleam') {
-    ventGlow.intensity = t < 0.8 ? 1.4 * Math.sin(t / 0.8 * Math.PI) : 0;
-    if (t > 4) { night.phase = 'hiss'; night.t = 0; caption('h', 'A gentle, soothing hiss, like steam from a kettle'); }
-  } else if (night.phase === 'hiss') {
-    if (t > 2.5) { night.phase = 'snake'; night.t = 0; adder.root.visible = true; adder.headY = 2.42; }
-  } else if (night.phase === 'snake') {
-    adder.headY = Math.max(0.86, adder.headY - dt * 0.16);
-    poseSnakeOnRope(t);
-    if (adder.headY <= 0.86) {
-      night.phase = 'missed'; night.misses++;
-      $('cardTitle').textContent = 'Too slow';
-      $('cardText').textContent = 'It has reached the pillow. Had Miss Stoner been lying there, it would have been over in ten seconds. It will go back at his whistle, and it will come again. This time, strike the rope the moment it comes down.';
-      $('cardTag').textContent = 'Try again · watch the ventilator';
-      night.onCardClose = () => { resetSnake(); night.phase = 'hiss'; night.t = 0; night.said.h = false; caption('h', 'Again: the soft hiss at the ventilator'); };
-      openCard();
-    }
-  } else if (night.phase === 'retreat') {
-    adder.headY += dt * 0.9; poseSnakeOnRope(t + 3);
-    if (adder.headY > 2.5) { resetSnake(); night.phase = 'cry'; night.t = 0; }
-  } else if (night.phase === 'cry') {
-    if (t > 1.2) caption('c', 'From the next room, a horrible cry of pain, fear and anger');
-    if (t > 4) { night.phase = 'ending'; night.t = 0; showEnding(); }
-  }
-}
-function showEnding() {
-  $('fade').classList.add('on');
-  setTimeout(() => {
-    // his room: the safe stands open; he sits in the wooden chair, the band around his brow
-    caneHold.visible = false; player.eye = EYE;
-    julia.group.remove(ventGlow, lantern, moonbeam, moonbeam.target);
-    hemi.intensity = HEMI * 0.7; scene.fog.color.set('#14110e'); scene.fog.density = FOG;
-    for (const f of flames) f.visible = true;
-    setRoomLights(1);
-    anim.safeOpen = -1.4;   // the safe stands open in the final scene
-    seatRoylott();
-    const local = new THREE.Vector3(ROY_X - VENT.x + 0.1, 0, 0.2); roylott.group.localToWorld(local);
-    player.room = 1; player.x = local.x; player.z = local.z;
-    const target = new THREE.Vector3(ROY_X - VENT.x, 1.3, -1.95); roylott.group.localToWorld(target);
-    const dx = target.x - player.x, dz = target.z - player.z; player.yaw = Math.atan2(-dx, -dz); player.pitch = Math.atan2(target.y - EYE, Math.hypot(dx, dz));
-    $('fade').classList.remove('on');
-    setTimeout(() => {
-      $('cardTitle').textContent = 'Violence recoils upon the violent';
-      $('cardText').textContent = 'Dr. Grimesby Roylott sits in the wooden chair, his eyes fixed in a dreadful, rigid stare at the ceiling. Round his brow is a peculiar yellow band, with brownish speckles. The band! The speckled band! Driven back through the ventilator, the swamp adder turned upon its master. "Violence does, in truth, recoil upon the violent, and the schemer falls into the pit which he digs for another."';
-      $('cardTag').textContent = 'The end';
-      night.onCardClose = showTheEnd;
-      openCard();
-    }, 1600);
-  }, 700);
-}
-function seatRoylott() {
-  if (!roy) return;
-  const r = roy;
-  r.state = 'seated'; r.root.visible = true;
-  roylott.group.attach(r.root);
-  r.root.position.set(ROY_X - VENT.x, 0, -1.97); r.root.rotation.set(0, 0, 0);   // in his chair, under the ventilator
-  // no hat at three in the morning
-  for (const n of ['hat_brim', 'hat_brim_curl', 'hat_crown', 'hat_band']) { const o = r.root.getObjectByName(n); if (o) o.visible = false; }
-  // give each leg a knee: hang the shin, gaiter and foot from a pivot at the bottom of the thigh
-  r.root.updateMatrixWorld(true);
-  for (const side of ['left', 'right']) {
-    const leg = r.root.getObjectByName('leg_' + side), thigh = r.root.getObjectByName('thigh_' + side);
-    if (!leg || !thigh) continue;
-    const box = new THREE.Box3().setFromObject(thigh);
-    const kneeW = new THREE.Vector3((box.min.x + box.max.x) / 2, box.min.y + 0.03, (box.min.z + box.max.z) / 2);
-    const knee = new THREE.Group(); leg.add(knee); knee.position.copy(leg.worldToLocal(kneeW.clone())); knee.updateMatrixWorld(true);
-    for (const c of [...leg.children]) if (c !== thigh && c !== knee) knee.attach(c);
-    leg.rotation.x = -Math.PI / 2; knee.rotation.x = Math.PI / 2;
-  }
-  r.root.position.y = -0.49;   // hips down onto the seat
-  if (r.armR) r.armR.quaternion.copy(r.armR.userData.q0).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.4, 0, 0)));
-  if (r.elbowR) r.elbowR.quaternion.copy(r.elbowR.userData.q0);
-  if (r.armL) r.armL.quaternion.copy(r.armL.userData.q0).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.4, 0, 0)));
-  if (r.head) r.head.quaternion.copy(r.head.userData.q0).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.45, 0, 0)));   // staring at the ceiling
-  for (const e of r.eyes) e.scale.copy(e.userData.s0);
-  // the snake, coiled round his brow: measure his head while it is upright, lay a rising spiral just touching it,
-  // lift the snake's head off his forehead at the end, then tilt his head back with the coil on it
-  const a = adder, head = r.head || r.root, V3 = THREE.Vector3;
-  if (r.head) r.head.quaternion.copy(r.head.userData.q0);
-  r.root.updateMatrixWorld(true);
-  const skin = r.root.getObjectByName('head_skin') || head;
-  const hb = new THREE.Box3().setFromObject(skin), hs = hb.getSize(new V3()), hc = hb.getCenter(new V3());
-  const c = head.worldToLocal(new V3(hc.x, hb.min.y + hs.y * 0.66, hc.z)), rad = hs.x * 0.47 + 0.012;
-  if (r.head) r.head.quaternion.copy(r.head.userData.q0).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.45, 0, 0)));   // staring at the ceiling
-  r.root.updateMatrixWorld(true);
-  const turns = Math.max(1.25, 0.92 / (2 * Math.PI * rad)), N = Math.ceil(turns * 18), end = Math.PI / 2 + 0.5, pts = [];
-  for (let i = 0; i <= N; i++) {
-    const u = i / N, ang = end - (1 - u) * turns * 2 * Math.PI;
-    pts.push(head.localToWorld(new V3(c.x + Math.cos(ang) * rad, c.y - 0.025 + u * 0.05, c.z + Math.sin(ang) * rad)));
-  }
-  pts.push(head.localToWorld(new V3(c.x + Math.cos(end + 0.35) * (rad + 0.035), c.y + 0.07, c.z + Math.sin(end + 0.35) * (rad + 0.035))));
-  const ring = new THREE.CatmullRomCurve3(pts, false, 'centripetal'), L = ring.getLength();
-  a.mode = 'ring'; a.curveMode = 'ring'; a.root.visible = true;
-  a.flow.updateCurve(0, ring); a.flow.uniforms.pathOffset.value = (L - 0.5) / L;   // snout at the lifted end
-}
-function showTheEnd() {
-  night.phase = 'end';
-  if (document.pointerLockElement) document.exitPointerLock();
-  const intro = $('intro');
-  intro.querySelector('.eyebrow').textContent = 'Stoke Moran, Surrey · April 1883';
-  intro.querySelector('h2').textContent = 'The End';
-  const ps = intro.querySelectorAll('p');
-  const testimony = [...found].filter(i => CLUES[i] && CLUES[i].testimony).length;
-  ps[0].textContent = `You found ${keyFound()} of 7 key clues and ${testimony} pieces of testimony, and saved Helen Stoner ${night.misses ? `on attempt ${night.misses + 1}` : 'on your first attempt'}.`;
-  ps[1].textContent = 'Based on "The Adventure of the Speckled Band" by Arthur Conan Doyle (1892).';
-  const b = $('begin'); b.textContent = 'Play again'; b.onclick = () => location.reload(); $('prologueBtn').hidden = true;
-  intro.hidden = false; playing = false;
-}
+function closeCard() { $('card').hidden = true; cardOpen = false; cvs.focus(); }
+$('cardClose').addEventListener('click', closeCard);
+$('prompt').addEventListener('click', () => examine());
 
 // ---------- sound (Web Audio, generated; starts only after a click) ----------
-const sfx = { ctx: null, master: null, rain: null };
+const sfx = { ctx: null, master: null };
 function audioOn() {
   if (sfx.ctx) { if (sfx.ctx.state === 'suspended') sfx.ctx.resume(); return true; }
   try {
@@ -941,454 +679,69 @@ function noiseBuffer(seconds, brown) {
   for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1; if (brown) { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w; }
   return b;
 }
-function startStorm() {
-  if (!sfx.ctx || sfx.rain) return;
-  const c = sfx.ctx, out = c.createGain(); out.gain.value = 0; out.connect(sfx.master);
-  // rain: bright filtered noise
-  const r = c.createBufferSource(); r.buffer = noiseBuffer(3, false); r.loop = true;
-  const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
-  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6500;
-  const rg = c.createGain(); rg.gain.value = 0.16;
-  r.connect(hp).connect(lp).connect(rg).connect(out);
-  // wind: brown noise through a slowly sweeping band-pass
-  const w = c.createBufferSource(); w.buffer = noiseBuffer(4, true); w.loop = true;
-  const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 400; bp.Q.value = 3;
-  const lfo = c.createOscillator(); lfo.frequency.value = 0.13; const lfoAmt = c.createGain(); lfoAmt.gain.value = 260;
-  lfo.connect(lfoAmt).connect(bp.frequency);
-  const wg = c.createGain(); wg.gain.value = 0.5;
-  w.connect(bp).connect(wg).connect(out);
-  r.start(); w.start(); lfo.start();
-  out.gain.linearRampToValueAtTime(1, c.currentTime + 2.5);
-  sfx.rain = { out, nodes: [r, w, lfo] };
-}
-function stopStorm(fade = 1.2) {
-  if (!sfx.rain) return;
-  const c = sfx.ctx, s = sfx.rain; sfx.rain = null;
-  s.out.gain.cancelScheduledValues(c.currentTime); s.out.gain.setValueAtTime(s.out.gain.value, c.currentTime);
-  s.out.gain.linearRampToValueAtTime(0, c.currentTime + fade);
-  setTimeout(() => s.nodes.forEach(n => { try { n.stop(); } catch (e) {} }), fade * 1000 + 100);
-}
-function thunder(delay = 0) {
-  if (!sfx.ctx) return;
-  const c = sfx.ctx, t0 = c.currentTime + delay;
-  const s = c.createBufferSource(); s.buffer = noiseBuffer(4, true);
-  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t0); lp.frequency.exponentialRampToValueAtTime(90, t0 + 3.5);
-  const g = c.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(1.6, t0 + 0.08); g.gain.exponentialRampToValueAtTime(0.001, t0 + 3.8);
-  s.connect(lp).connect(g).connect(sfx.master); s.start(t0); s.stop(t0 + 4);
-}
-function whistle() {
-  if (!sfx.ctx) return;
-  // a low, clear whistle: two long notes, the second dropping
-  const c = sfx.ctx, t0 = c.currentTime;
-  const o = c.createOscillator(); o.type = 'sine';
-  const vib = c.createOscillator(); vib.frequency.value = 5.5; const va = c.createGain(); va.gain.value = 6; vib.connect(va).connect(o.frequency);
-  o.frequency.setValueAtTime(760, t0); o.frequency.linearRampToValueAtTime(800, t0 + 0.9); o.frequency.setValueAtTime(800, t0 + 1.05); o.frequency.linearRampToValueAtTime(640, t0 + 2.1);
-  const g = c.createGain();
-  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.16, t0 + 0.15); g.gain.setValueAtTime(0.16, t0 + 0.85); g.gain.linearRampToValueAtTime(0.02, t0 + 1.0);
-  g.gain.linearRampToValueAtTime(0.16, t0 + 1.15); g.gain.setValueAtTime(0.16, t0 + 1.9); g.gain.linearRampToValueAtTime(0, t0 + 2.2);
-  o.connect(g).connect(sfx.master); o.start(t0); vib.start(t0); o.stop(t0 + 2.3); vib.stop(t0 + 2.3);
-}
-function hiss(dur = 1.6) {
-  if (!sfx.ctx) return;
-  const c = sfx.ctx, t0 = c.currentTime;
-  const s = c.createBufferSource(); s.buffer = noiseBuffer(dur + 0.2, false);
-  const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3500;
-  const g = c.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.12, t0 + 0.3); g.gain.linearRampToValueAtTime(0, t0 + dur);
-  s.connect(hp).connect(g).connect(sfx.master); s.start(t0); s.stop(t0 + dur + 0.2);
-}
-function scream() {
-  if (!sfx.ctx) return;
-  // a shriek over a dissonant sting: rising, breaking voice-like tones through a vowel filter
-  const c = sfx.ctx, t0 = c.currentTime;
-  const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 1.2;
-  const g = c.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.32, t0 + 0.06); g.gain.setValueAtTime(0.3, t0 + 0.9); g.gain.exponentialRampToValueAtTime(0.001, t0 + 1.9);
-  f.connect(g).connect(sfx.master);
-  for (const [base, det] of [[880, 0], [932, 7], [1310, -5]]) {
-    const o = c.createOscillator(); o.type = 'sawtooth'; o.detune.value = det;
-    o.frequency.setValueAtTime(base * 0.8, t0); o.frequency.linearRampToValueAtTime(base * 1.25, t0 + 0.35); o.frequency.linearRampToValueAtTime(base * 1.05, t0 + 1.0); o.frequency.linearRampToValueAtTime(base * 0.55, t0 + 1.8);
-    const tr = c.createOscillator(); tr.frequency.value = 7; const ta = c.createGain(); ta.gain.value = base * 0.03; tr.connect(ta).connect(o.frequency);
-    o.connect(f); o.start(t0); tr.start(t0); o.stop(t0 + 2); tr.stop(t0 + 2);
-  }
-  const low = c.createOscillator(); low.type = 'triangle'; low.frequency.value = 55;
-  const lg = c.createGain(); lg.gain.setValueAtTime(0.4, t0); lg.gain.exponentialRampToValueAtTime(0.001, t0 + 2.5);
-  low.connect(lg).connect(sfx.master); low.start(t0); low.stop(t0 + 2.6);
-}
 
-// ---------- the prologue: the night Julia died, two years ago ----------
-const cut = { active: false, t: 0, events: {}, saved: null, lightning: null, flash: 0, shake: 0 };
-// camera path: time (s), position, point looked at
-const CUT_KEYS = [
-  { t: 4, p: [1.25, 1.62, 1.85], l: [-0.4, 1.1, -1.6] },
-  { t: 9, p: [1.05, 1.55, 0.9], l: [-0.1, 1.0, -1.8] },
-  { t: 14, p: [0.95, 1.45, -0.3], l: [0.1, 0.85, -2.0] },
-  { t: 17, p: [0.85, 1.3, -1.05], l: [0.18, 1.1, -2.08] },
-  { t: 20.5, p: [0.9, 1.5, -0.95], l: [0.4, 2.3, -2.22] },     // the ventilator, the hook and the top of the rope, centred
-  { t: 24, p: [0.82, 1.5, -1.08], l: [0.42, 2.26, -2.22] },
-];
-const ease3 = x => x * x * (3 - 2 * x);
-const vA = new THREE.Vector3(), vB = new THREE.Vector3(), lookV = new THREE.Vector3();
-function cutCamera(t) {
-  const k = CUT_KEYS;
-  let i = 0; while (i < k.length - 2 && t > k[i + 1].t) i++;
-  const a = k[i], b = k[i + 1];
-  const u = ease3(Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t))));
-  camera.position.copy(vA.fromArray(a.p)).lerp(vB.fromArray(b.p), u);
-  lookV.copy(vA.fromArray(a.l)).lerp(vB.fromArray(b.l), u);
-  if (cut.shake > 0 && !reduceMotion) { camera.position.x += (Math.random() - 0.5) * cut.shake * 0.04; camera.position.y += (Math.random() - 0.5) * cut.shake * 0.04; }
-  camera.lookAt(lookV);
-}
-function cineText(id, text, on) { const el = $(id); if (text !== undefined) el.textContent = text; el.classList.toggle('on', on); }
-function startCutscene() {
-  if (cut.active) return;
-  audioOn();
-  cut.active = true; cut.t = 0; cut.events = {}; cut.shake = 0; cut.flash = 0;
-  document.body.classList.add('cinematic');
-  $('intro').hidden = true; $('cine').hidden = false; $('fade').classList.add('on');
-  ['cineCap', 'cineSub', 'cineWords', 'cineTitle'].forEach(id => cineText(id, '', false));
-  // the room as it was that night: one candle, rain at the window, lightning
-  const s = cut.saved = { fov: camera.fov, fog: scene.fog.color.getHex(), fogD: scene.fog.density, hemi: hemi.intensity };
-  setRoomLights(0);
-  const [day, c1, c2] = julia.lights;
-  s.day = { color: day.L.color.getHex(), intensity: day.L.intensity };
-  day.L.color.set('#6e86a8'); day.L.intensity = 4;
-  c2.on = false; c2.L.visible = false;
-  for (const l of julia.lights) if (l.fill) { l.on = false; l.L.visible = false; }
-  hemi.intensity = 0.14; scene.fog.color.set('#07080b'); scene.fog.density = 0.08;
-  cut.lightning = new THREE.PointLight('#cfe0ff', 0, 9, 1.2); cut.lightning.position.set(-2.6, 2.0, -1.3);
-  julia.group.add(cut.lightning, moonbeam, moonbeam.target, ventGlow); moonbeam.intensity = 5;
-  if (helenRig) helenRig.root.visible = false;
-  camera.fov = 55; camera.updateProjectionMatrix();
-  if (document.pointerLockElement) document.exitPointerLock();
-  startStorm();
-}
-function endCutscene() {
-  if (!cut.active) return;
-  cut.active = false;
-  stopStorm(0.8);
-  const s = cut.saved, [day, c1, c2] = julia.lights;
-  day.L.color.setHex(s.day.color); day.L.intensity = s.day.intensity;
-  c2.on = true; c2.L.visible = true; c1.base = CANDLE;
-  for (const l of julia.lights) if (l.fill) { l.on = true; l.L.visible = true; }
-  hemi.intensity = s.hemi; scene.fog.color.setHex(s.fog); scene.fog.density = s.fogD;
-  julia.group.remove(cut.lightning, moonbeam, moonbeam.target, ventGlow); moonbeam.intensity = 0; ventGlow.intensity = 0;
-  if (helenRig) helenRig.root.visible = true;
-  resetSnake(); for (const f of flames) f.visible = true;
-  camera.fov = s.fov; camera.updateProjectionMatrix();
-  $('cine').hidden = true; $('fade').classList.remove('on'); document.body.classList.remove('cinematic');
-  try { localStorage.setItem('speckled-prologue-seen', '1'); } catch (err) { /* fine: it just plays again next time */ }
-  setIntroState('story');
-}
-function cutOnce(key, at, fn) { if (cut.t >= at && !cut.events[key]) { cut.events[key] = true; fn(); } }
-function lightning(strength = 1) { cut.flash = strength; }
-function tickCutscene(dt) {
-  cut.t += dt; const t = cut.t;
-  cutOnce('cap1', 0.6, () => cineText('cineCap', 'Stoke Moran, Surrey', true));
-  cutOnce('cap2', 2.3, () => cineText('cineCap', 'Two years ago', true));
-  cutOnce('in', 4, () => { cineText('cineCap', undefined, false); $('fade').classList.remove('on'); });
-  cutOnce('l1', 5.2, () => { lightning(1); thunder(1.1); });
-  cutOnce('l2', 11.5, () => { lightning(0.6); thunder(1.6); });
-  cutOnce('w', 17.6, () => { whistle(); cineText('cineSub', '[ a low, clear whistle ]', true); });
-  cutOnce('wOff', 20.6, () => cineText('cineSub', undefined, false));
-  cutOnce('s', 21.2, () => { adder.root.visible = true; adder.headY = 2.36; hiss(1.4); lightning(0.9); });
-  cutOnce('scream', 23.6, () => { scream(); lightning(1.2); cut.shake = 1; cineText('cineSub', '[ a woman screams ]', true); });
-  cutOnce('dark', 24.5, () => { $('fade').classList.add('on'); cineText('cineSub', undefined, false); });
-  cutOnce('words', 25.6, () => cineText('cineWords', '"Helen! It was the band! The speckled band!"', true));
-  cutOnce('wordsOff', 30.5, () => cineText('cineWords', undefined, false));
-  cutOnce('title', 31.5, () => cineText('cineTitle', 'The Speckled Band', true));
-  cutOnce('end', 36, () => endCutscene());
-  if (!cut.active) return;
-  cutCamera(Math.max(4, Math.min(t, 24)));
-  // the snake: a glimpse at the grille, then gone
-  if (t > 21.2 && t < 24) {
-    adder.headY = t < 23.2 ? 2.36 - (t - 21.2) * 0.12 : Math.min(2.6, adder.headY + dt * 0.9);
-    if (adder.headY > 2.5) adder.root.visible = false;
-    if (adder.root.visible) poseSnakeOnRope(t, 0.45);   // just its head, out of the grille
-  }
-  // lightning flicker, a guttering candle, the shake after the scream
-  cut.flash = Math.max(0, cut.flash - dt * 2.6);
-  const f = cut.flash, flick = f > 0 ? (Math.sin(t * 60) > -0.3 ? 1 : 0.25) : 0;
-  cut.lightning.intensity = 70 * f * flick;
-  // "a gleam of light in the direction of the ventilator": a lantern behind the grille from the whistle until the scream
-  ventGlow.intensity = t > 17.4 && t < 24.4 ? 0.8 * Math.min(1, (t - 17.4) / 0.8) * (0.9 + 0.1 * Math.sin(t * 7)) : 0;
-  hemi.intensity = 0.14 + 0.9 * f * flick;
-  const c1 = julia.lights[1]; if (c1) c1.base = (t > 9.5 && t < 12.5) ? 0.4 + 0.3 * Math.abs(Math.sin(t * 13)) : (t > 24 ? 0 : 1.2);
-  cut.shake = Math.max(0, cut.shake - dt * 1.5);
-}
-
-// ---------- the start screens ----------
-const INTRO_TEXT = { eyebrow: '', title: '', p0: '', p1: '' };
-function setIntroState(state) {
-  const intro = $('intro'), b = $('begin'), alt = $('prologueBtn'), ps = intro.querySelectorAll('p');
-  if (!INTRO_TEXT.p0) { INTRO_TEXT.eyebrow = intro.querySelector('.eyebrow').textContent; INTRO_TEXT.title = intro.querySelector('h2').textContent; INTRO_TEXT.p0 = ps[0].innerHTML; INTRO_TEXT.p1 = ps[1].innerHTML; }
-  introState = state; intro.hidden = false; b.disabled = false; alt.hidden = false;
-  if (state === 'prologue') {
-    intro.querySelector('.eyebrow').textContent = 'A Sherlock Holmes mystery';
-    ps[0].textContent = 'Best with the sound on.'; ps[1].hidden = true;
-    b.textContent = 'Begin'; alt.textContent = 'Skip the prologue';
-  } else {
-    intro.querySelector('.eyebrow').textContent = INTRO_TEXT.eyebrow;
-    ps[0].innerHTML = INTRO_TEXT.p0; ps[1].innerHTML = INTRO_TEXT.p1; ps[1].hidden = false;
-    b.textContent = 'Begin the search'; alt.textContent = 'Watch the prologue';
-  }
-  b.focus({ preventScroll: true });
-}
+// ---------- the start screen ----------
 let introState = 'loading';
-function prologueSeen() { try { return localStorage.getItem('speckled-prologue-seen') === '1'; } catch (err) { return false; } }
-$('prologueBtn').addEventListener('click', () => { if (introState === 'prologue') { audioOn(); setIntroState('story'); } else startCutscene(); });
-$('cineSkip').addEventListener('click', () => { if (sfx.ctx) stopStorm(0.3); endCutscene(); });
+function setIntroState(state) {
+  introState = state;
+  const b = $('begin'); b.disabled = false; b.textContent = 'Go up to the attic'; b.focus({ preventScroll: true });
+}
 
-// ---------- step 6: the deduction ----------
-let deduceOpen = false;
-const deduction = { solved: false, picks: {}, announced: false, autoOpened: false };
-const UNLOCK = ['bell_rope', 'ventilator', 'bed', 'saucer'];
-const WHERE = {   // where to look for a missing piece, without naming it
-  saucer: 'the top of his safe', lash: 'the corner of his camp bed', chair: 'the chair beneath his ventilator', safe: 'his iron safe',
-  bell_rope: 'the bell-rope by Julia\'s bed', ventilator: 'the grille above Julia\'s bed', bed: 'Julia\'s bed',
-  motive: 'what Helen knows of her stepfather and the money', animals: 'what Dr. Roylott lets slip about his animals', clang: 'what Helen heard after the whistle',
-};
-const DQ = [
-  { id: 'who', q: 'Who killed Julia Stoner?', opts: [
-    { t: 'A band of gipsies camped on the grounds', hint: 'They wear spotted handkerchiefs, and "band" is a tempting word. I confess I leaned that way myself at first. But no gipsy could pass bolted shutters, or reach a ventilator that opens only into the next room.' },
-    { t: 'Dr. Grimesby Roylott', ok: true, need: ['ventilator', 'vent_back'] , needAny: true },
-    { t: 'An intruder who came in by night', hint: 'The shutters were bolted and the chimney stapled shut. Whatever killed her was already inside the house.' },
-    { t: 'No one; she died of fright', hint: 'A girl does not die of fright crying out about a band. Something was in that room with her. She struck a match to see it.' },
-  ] },
-  { id: 'how', q: 'How was it done?', opts: [
-    { t: 'Poison, slipped into her food or drink', hint: 'The coroner found no trace of poison. And poison has no use for a bell-rope that rings nothing, or a bed bolted to the floor.' },
-    { t: 'Someone crept in through the window', hint: 'Bars, shutters and a bolt fastened every night. Look at what connects her room to his instead.' },
-    { t: 'A deadly snake from India, put through the ventilator to crawl down the dummy rope onto the bed', ok: true, need: ['bell_rope', 'ventilator', 'bed', 'saucer', 'lash', 'chair'] },
-    { t: 'Gas, fed in through the ventilator', hint: 'Gas would have reached the whole room and her sister besides. And why then a rope, a saucer of milk, and a loop of whipcord?' },
-  ] },
-  { id: 'why', q: 'Why?', opts: [
-    { t: 'In a fit of the violent temper he is known for', hint: 'Temper strikes in a moment. This was planned for two years: a ventilator built, a rope hung, a bed bolted down.' },
-    { t: 'To keep the income his stepdaughters would take with them when they married', ok: true, need: ['motive'] },
-    { t: 'Because Julia had learned something about his past in India', hint: 'Then why is Helen in danger now, two years later, just as her own wedding approaches?' },
-    { t: 'To sell Stoke Moran and leave England', hint: 'The house is all but ruined and mortgaged. It is not the house he wants. It is the money his late wife\'s will hands to each daughter on her marriage.' },
-  ] },
-];
-function renderDeduce(feedback) {
-  const box = $('dQs'); box.innerHTML = '';
-  DQ.forEach((q, qi) => {
-    const sec = document.createElement('section'); sec.className = 'dq';
-    const h = document.createElement('h3'); h.textContent = `${qi + 1}. ${q.q}`; sec.append(h);
-    const opts = document.createElement('div'); opts.className = 'dopts'; opts.setAttribute('role', 'group'); opts.setAttribute('aria-label', q.q);
-    q.opts.forEach((o, oi) => {
-      const b = document.createElement('button'); b.type = 'button'; b.textContent = o.t;
-      b.setAttribute('aria-pressed', String(deduction.picks[q.id] === oi));
-      b.addEventListener('click', () => { deduction.picks[q.id] = oi; renderDeduce(); });
-      opts.append(b);
-    });
-    sec.append(opts);
-    const f = feedback && feedback[q.id];
-    if (f) { const p = document.createElement('p'); p.className = 'dfb ' + f.cls; p.textContent = f.text; sec.append(p); }
-    box.append(sec);
-  });
-}
-function checkDeduce() {
-  const fb = {}; let allOk = true;
-  for (const q of DQ) {
-    const pick = deduction.picks[q.id];
-    if (pick === undefined) { fb[q.id] = { cls: 'no', text: 'You have not answered this yet.' }; allOk = false; continue; }
-    const o = q.opts[pick];
-    if (!o.ok) { fb[q.id] = { cls: 'no', text: o.hint }; allOk = false; continue; }
-    const missing = o.needAny ? (o.need.some(n => found.has(n)) ? [] : [o.need[0]]) : o.need.filter(n => !found.has(n));
-    if (missing.length) { fb[q.id] = { cls: 'half', text: 'Right, I think, but I cannot prove it yet. Still to examine: ' + missing.map(m => WHERE[m] || m).join('; ') + '.' }; allOk = false; continue; }
-    fb[q.id] = { cls: 'ok', text: q.id === 'who' ? 'Yes. Every road in this house leads to his room.' : q.id === 'how' ? 'Yes. The milk, the loop, the chair, the rope: it all fits.' : 'Yes. Julia died two weeks before her wedding. Helen is to marry this spring.' };
-  }
-  renderDeduce(fb);
-  const v = $('dVerdict');
-  if (allOk) {
-    deduction.solved = true; updateHud();
-    v.hidden = false; v.textContent = 'There it is. Now we must catch him at it.';
-    $('dCheck').textContent = 'Continue'; $('dClose').hidden = true;
-  } else { v.hidden = true; }
-}
-function openDeduce() {
-  if (deduceOpen || deduction.solved) return;
-  deduceOpen = true;
-  if (document.pointerLockElement) document.exitPointerLock();
-  renderDeduce(); $('dVerdict').hidden = true; $('dCheck').textContent = 'Put it to the test'; $('dClose').hidden = false;
-  $('deduce').hidden = false;
-  setTimeout(() => { const b = document.querySelector('#dQs button'); if (b) b.focus({ preventScroll: true }); }, 0);
-}
-function closeDeduce() {
-  $('deduce').hidden = true; deduceOpen = false; cvs.focus();
-  if (deduction.solved && !deduction.announced) {
-    setTimeout(() => {
-      $('cardTitle').textContent = 'The speckled band';
-      $('cardText').textContent = 'A swamp adder, the deadliest snake in India. He trained it with milk to come back at his whistle. At night he stood on that chair and put it through the ventilator; it crept down the dummy rope to the bolted bed. Sooner or later it would bite. Before dawn he whistled it home and shut the safe on it: the clang Helen heard. Tonight Miss Stoner sleeps elsewhere. I will wait in her room, in the dark.';
-      $('cardTag').textContent = 'Step 6 complete · The night watch comes next';
-      openCard();
-    }, 300);
-  }
-}
-$('dCheck').addEventListener('click', () => { if (deduction.solved) closeDeduce(); else checkDeduce(); });
-$('dClose').addEventListener('click', closeDeduce);
-$('dbtn').addEventListener('click', openDeduce);
+// ---------- loading ----------
+Promise.all(MODELS.map(parseGLB)).then(() => {
+  finishExaminables();
+  setRoomLights(player.room);
+  ready = true;
+  setIntroState('story');
+}).catch(err => {
+  console.error(err);
+  loadFailed = true;
+  $('status').textContent = 'The attic didn\'t finish loading. Check your connection and reload.';
+  const btn = $('begin'); btn.disabled = false; btn.textContent = 'Reload the game';
+  btn.onclick = () => location.reload();
+});
 
-// ---------- conversations (Helen, and Dr. Roylott when he storms in) ----------
-let talkOpen = false, talkButtons = [], speaker = null;
-const SPEAKERS = {
-  helen: {
-    name: 'Helen Stoner', shown: new Set(), asked: new Set(), leaveLabel: 'That\'s all for now',
-    greet: (first) => first ? 'Mr. Holmes. Have you found anything? Show me whatever you find, and I will tell you all I know. I have no one else to tell.' : 'Yes, Mr. Holmes?',
-    generic: [
-      'I don\'t see what that has to do with it, Mr. Holmes. But you see a great deal more than I do.',
-      'I have looked at that a hundred times and never thought twice about it.',
-      'If you say it matters, I believe you. I only wish I understood why.',
-    ],
-    react: {
-      bell_rope: { line: 'He had it put up two years ago, while the builders were in the house. Julia never rang it once. We always fetched what we wanted for ourselves.' },
-      ventilator: { line: 'That grille? Julia used to complain of the smell of his cigars, strong Indian ones. It came through there every night. She thought it was only bad building.', adds: 'cigars' },
-      vent_back: { line: 'So that is where it comes out. Julia used to complain of his cigar smoke, every night, through that grille.', adds: 'cigars' },
-      bed: { line: 'When I moved into this room I tried to pull the bed nearer the window. It wouldn\'t move. I thought the floorboards had swollen.' },
-      safe: { line: 'His business papers, he says. Mr. Holmes, that night, just after the whistle, I heard a clang. As if a mass of metal had fallen. I have never been able to forget it.', adds: 'clang' },
-      saucer: { line: 'Milk? We have no cat. He keeps a cheetah and a baboon, and lets them wander the grounds at night. The villagers fear them almost as much as they fear him.' },
-      lash: { line: 'We have no dog. He doesn\'t need a whip to frighten anyone. Last autumn he threw the blacksmith over a parapet into the stream.' },
-      chair: { line: 'He stands on that chair? He is not a man who reaches for things, Mr. Holmes. He simply takes them.' },
-      window: { line: 'Julia bolted the shutters every night. They were still bolted in the morning. I tried them myself.' },
-      chimney: { line: 'Stapled shut years ago. Nothing could come down there.' },
-      chest: { line: 'She had the matchbox in her hand when we found her. She must have struck a light to see what was in the room with her.' },
-      camp_bed: { line: 'He lives like a soldier in there. He spends nothing on himself. Only on his animals, and on his temper.' },
-    },
-    asks: [
-      { id: 'night', label: 'Ask about the night Julia died', adds: ['whistle', 'last_words'],
-        line: 'It was a wild night, the wind howling and rain beating at the windows. She came to my room and asked if I had ever heard a low, clear whistle in the dead of night. Later I heard her scream. Her door opened. She staggered out and cried, "Helen! It was the band! The speckled band!" She tried to point toward the doctor\'s room. Then she fell, and never spoke again.' },
-      { id: 'roylott', label: 'Ask about Dr. Roylott', adds: ['motive'],
-        line: 'He practised medicine in Calcutta, until he beat his butler to death in a temper and served a long sentence for it. Our mother left him her money, on condition that each of us receive a share when we married. Julia was to be married in two weeks when she died. And I am to be married this spring.' },
-    ],
+// ---------- test hook: read-only views and a few controls for tools/test (harmless in play) ----------
+let view = null;   // a camera override for overhead shots
+const hidden = [];
+window.__game = {
+  get ready() { return ready; }, get playing() { return playing; }, get room() { return player.room; },
+  get target() { return target ? target.id : null; },
+  rooms: rooms.map(r => r.name),
+  where: () => ({ room: player.room, x: +player.x.toFixed(3), z: +player.z.toFixed(3) }),
+  // stand in room i at its own (lx, lz), looking at a world point
+  place(i, lx, lz, look) {
+    const p = rooms[i].group.localToWorld(new THREE.Vector3(lx, 0, lz));
+    player.room = i; player.x = p.x; player.z = p.z; setRoomLights(i);
+    if (look) { const [wx, wy, wz] = look, eyeY = rooms[i].floorY + EYE; player.yaw = Math.atan2(-(wx - p.x), -(wz - p.z)); player.pitch = Math.atan2(wy - eyeY, Math.hypot(wx - p.x, wz - p.z)); }
   },
-  roylott: {
-    name: 'Dr. Grimesby Roylott', shown: new Set(), asked: new Set(), leaveLabel: 'I have heard enough, Dr. Roylott',
-    greet: () => 'Which of you is Holmes? I know you, you scoundrel! Holmes, the meddler. Holmes, the busybody. I traced her here. Whatever she has been telling you, you will hear the truth from me.',
-    generic: [
-      'I\'ll not stand here and be cross-examined in my own house!',
-      'Scraps and fancies. Is that what they pay you for in London?',
-      'You are a meddler, Holmes. Meddlers come to grief.',
-    ],
-    react: {
-      saucer: { line: 'My cheetah is fond of milk. Is that a crime in London now?', strike: false },
-      safe: { line: 'Keep your hands off my property! What is in my safe is my business, and no one else\'s.', strike: true },
-      lash: { line: 'Am I to explain every scrap of leather in my house to a busybody?' },
-      chair: { line: 'I stand on my own chairs as I please.' },
-      ventilator: { line: 'The house is old. It wanted air. I had it put in.' },
-      vent_back: { line: 'The house is old. It wanted air. I had it put in.' },
-      bell_rope: { line: 'Repairs. The west wing was being rebuilt. Am I to account for my builders to you as well?' },
-      bed: { line: 'The floor is uneven. The bed was fixed so it would not rock. You see plots in carpentry.' },
-      chest: { line: 'The girl was nervous. Afraid of the dark. She died of fright, the coroner said so.' },
-      books: { line: 'Keep your eyes off my shelves.' },
-    },
-    asks: [
-      { id: 'safe', label: 'Ask what he keeps in the safe', strike: true,
-        line: 'Papers. My papers, in my safe, in my house. Lay a finger on it and I will break your arm.' },
-      { id: 'julia', label: 'Ask how Julia died',
-        line: 'The coroner found no cause, and the coroner was right. A nervous girl, frightened to death of the dark. Leave the dead alone, Mr. Holmes.' },
-      { id: 'animals', label: 'Ask about his animals', adds: ['animals'],
-        line: 'I have a correspondent in India who sends me Indian animals. You have seen the cheetah and the baboon, I suppose. Anyone who trespasses on my grounds at night had better remember them.' },
-    ],
-  },
-};
-function addFact(ids) {
-  const fresh = (Array.isArray(ids) ? ids : [ids]).filter(i => i && !found.has(i));
-  fresh.forEach(i => found.add(i));
-  if (fresh.length) updateHud();
-  return fresh;
-}
-function say(line, fresh, strike) {
-  $('talkLine').textContent = line;
-  const a = $('talkAdded');
-  a.hidden = !fresh || !fresh.length;
-  if (fresh && fresh.length) a.textContent = 'Added to notebook: ' + fresh.map(i => CLUES[i].title.replace(/"/g, '')).join(', ');
-  if (speaker === 'helen' && helenRig) helenRig.talk = 2.6;
-  if (speaker === 'roylott' && roy) { roy.threat = 2.6; if (strike) roy.strike = 1; }
-}
-function buildOptions() {
-  const S = SPEAKERS[speaker];
-  const box = $('talkOpts'); box.innerHTML = ''; talkButtons = [];
-  const add = (label, cls, fn) => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = cls || '';
-    const k = document.createElement('kbd');
-    if (cls !== 'leave') { k.textContent = String(talkButtons.length + 1); talkButtons.push(b); } else k.textContent = 'Esc';
-    b.append(k, document.createTextNode(label)); b.addEventListener('click', fn); box.append(b);
-  };
-  const lbl = t => { const d = document.createElement('div'); d.className = 'lbl'; d.textContent = t; box.append(d); };
-  lbl(speaker === 'roylott' ? 'Ask him' : 'Ask her');
-  for (const q of S.asks) add(q.label, 'ask' + (S.asked.has(q.id) ? ' shown' : ''), () => {
-    S.asked.add(q.id); say(q.line, addFact(q.adds), q.strike); buildOptions();
-  });
-  const evidence = [...found].filter(id => CLUES[id] && !CLUES[id].testimony && CLUES[id].title);
-  const who = speaker === 'roylott' ? 'him' : 'her';
-  lbl(evidence.length ? `Show ${who}` : `Show ${who} (find evidence in the rooms first)`);
-  for (const id of evidence) add(CLUES[id].title, S.shown.has(id) ? 'shown' : '', () => {
-    S.shown.add(id);
-    const r = S.react[id];
-    say(r ? r.line : S.generic[S.shown.size % S.generic.length], addFact(r && r.adds), r && r.strike);
-    buildOptions();
-  });
-  add(S.leaveLabel, 'leave', closeTalk);
-}
-function openTalk(who = 'helen') {
-  speaker = who; talkOpen = true;
-  if (document.pointerLockElement) document.exitPointerLock();
-  const S = SPEAKERS[who];
-  document.querySelector('#talk .who').textContent = S.name;
-  $('talk').setAttribute('aria-label', 'Talking to ' + S.name);
-  say(S.greet(!S.asked.size && !S.shown.size), null);
-  buildOptions();
-  $('talk').hidden = false;
-  setTimeout(() => { const b = talkButtons[0]; if (b) b.focus({ preventScroll: true }); }, 0);
-}
-function closeTalk() {
-  if (speaker === 'roylott' && roy && roy.state === 'present') {
-    // his parting threat, then he goes
-    roy.state = 'threat';
-    say('I will go when I have said my say. Don\'t you dare meddle with my affairs. I know Miss Stoner has been talking to you. I am a dangerous man to fall foul of.', null, true);
-    const box = $('talkOpts'); box.innerHTML = ''; talkButtons = [];
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'leave';
-    const k = document.createElement('kbd'); k.textContent = 'Esc'; b.append(k, document.createTextNode('Let him go'));
-    b.addEventListener('click', closeTalk); box.append(b); setTimeout(() => b.focus({ preventScroll: true }), 0);
-    return;
-  }
-  $('talk').hidden = true; talkOpen = false; cvs.focus();
-  if (speaker === 'roylott' && roy && roy.state === 'threat') { roy.state = 'leaving'; roy.t = 0; return; }
-  nextMilestone();
-}
-
-// buttons on the note card and the on-screen prompt (tap on phones)
-$('cardClose').addEventListener('click', closeCard);
-$('prompt').addEventListener('click', () => { if (night.phase !== 'off') strike(); else examine(); });
-
-function updateHud() {
-  $('keyCount').textContent = `${keyFound()} of 7`;
-  $('noteCount').textContent = String([...found].filter(i => CLUES[i] && CLUES[i].title && !KEY.includes(i)).length);
-  const list = $('nbList'); list.innerHTML = '';
-  const short = id => CLUES[id].text;   // the full note: this is where you review the evidence
-  const head = t => { const h = document.createElement('li'); h.className = 'nbhead'; h.textContent = t; list.append(h); };
-  // every key clue has a slot from the start, so you always know what is left and where to look
-  head(`Key evidence · ${keyFound()} of 7`);
-  const ROOM_OF = { bell_rope: 'Julia\'s room', ventilator: 'Julia\'s room', bed: 'Julia\'s room', safe: 'Dr. Roylott\'s room', saucer: 'Dr. Roylott\'s room', lash: 'Dr. Roylott\'s room', chair: 'Dr. Roylott\'s room' };
-  for (const id of KEY) {
-    const li = document.createElement('li');
-    if (found.has(id)) { li.className = 'key'; const b = document.createElement('b'); b.textContent = CLUES[id].title; li.append(b, document.createTextNode(short(id))); }
-    else { li.className = 'missing'; li.textContent = `Not yet found · somewhere in ${ROOM_OF[id]}`; }
-    list.append(li);
-  }
-  const others = [...found].filter(i => CLUES[i] && CLUES[i].title && !KEY.includes(i));
-  if (others.length) {
-    head('Notes and testimony');
-    for (const id of others) {
-      const li = document.createElement('li'); li.className = CLUES[id].testimony ? 'note testimony' : 'note';
-      const b = document.createElement('b'); b.textContent = CLUES[id].title; li.append(b, document.createTextNode(short(id))); list.append(li);
+  // stand where a player arrives in room i, facing what they would face
+  enter(i, at) { const r = rooms[i], e = r.entries[at] || r.entries.door || Object.values(r.entries)[0]; this.place(i, e.pos[0], e.pos[1]); const lk = r.group.localToWorld(new THREE.Vector3(e.look[0], 0, e.look[1])); player.yaw = Math.atan2(-(lk.x - player.x), -(lk.z - player.z)); player.pitch = e.pitch ?? -0.1; },
+  placeWorld(i, wx, wz, look) { const p = rooms[i].group.worldToLocal(new THREE.Vector3(wx, rooms[i].group.position.y, wz)); this.place(i, p.x, p.z, look); },
+  look(wx, wy, wz) { const eyeY = rooms[player.room].floorY + EYE; player.yaw = Math.atan2(-(wx - player.x), -(wz - player.z)); player.pitch = Math.atan2(wy - eyeY, Math.hypot(wx - player.x, wz - player.z)); },
+  bounds: i => { const r = rooms[i]; return { minX: r.minX, maxX: r.maxX, minZ: r.minZ, maxZ: r.maxZ }; },
+  entryXZ: i => { const r = rooms[i], e = Object.values(r.entries)[0]; return e.pos; },
+  canStand: (i, lx, lz) => { const was = player.room; player.room = i; const p = rooms[i].group.localToWorld(new THREE.Vector3(lx, 0, lz)); const b = blocked(p.x, p.z); player.room = was; return !b; },
+  examine: () => examine(),
+  // how much of the lit window you can see from a standing spot: the share of 16 points on its glass with a clear line
+  windowVisibility(i, lx, lz) {
+    const solid = []; scene.traverse(o => { if (o.isMesh && o.visible && o.material && !o.material.transparent && o.material.visible !== false) solid.push(o); });
+    const eye = rooms[i].group.localToWorld(new THREE.Vector3(lx, 0, lz)); eye.y = rooms[i].floorY + EYE;
+    const rc = new THREE.Raycaster(); let clear = 0, n = 0;
+    for (const x of [-0.35, -0.15, 0.15, 0.35]) for (const y of [LIT.y0 + 0.25, 2.35, 2.85, LIT.y1 - 0.25]) {
+      const pt = new THREE.Vector3(x, y, FACADE_Z - 0.09), dir = pt.clone().sub(eye), dist = dir.length();
+      rc.set(eye, dir.normalize()); rc.far = dist - 0.02; n++;
+      if (!rc.intersectObjects(solid, false).length) clear++;
     }
-  }
-  $('nbEmpty').hidden = true;
-  $('dbtn').hidden = !(UNLOCK.every(k => found.has(k)) && !deduction.solved);
-}
-function toggleNotebook(force) {
-  nbOpen = typeof force === 'boolean' ? force : !nbOpen;
-  $('notebook').hidden = !nbOpen; $('nbtn').setAttribute('aria-expanded', String(nbOpen));
-}
-$('nbtn').addEventListener('click', () => toggleNotebook());
+    return clear / n;
+  },
+  topDown(i) {   // look straight down into a room with its roof lifted off
+    const r = rooms[i], c = r.group.localToWorld(new THREE.Vector3((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2));
+    if (r.ceilAt) r.group.traverse(o => { if (o.isMesh && o.parent && o.parent !== r.group && o.visible) { o.visible = false; hidden.push(o); } });
+    view = { pos: [c.x, r.floorY + 5.2, c.z + 0.001], look: [c.x, r.floorY, c.z] }; setRoomLights(i);
+  },
+  clearView() { view = null; for (const o of hidden.splice(0)) o.visible = true; },
+};
 
 // ---------- loop ----------
 const clock = new THREE.Clock();
@@ -1396,24 +749,24 @@ let t = 0;
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
 
-  if (playing && !cardOpen && !talkOpen && !deduceOpen && !moving) {
+  if (playing && !cardOpen && !moving) {
     const f = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0) - joyV.y;
     const s = (keys['d'] ? 1 : 0) - (keys['a'] ? 1 : 0) + joyV.x;
     // arrow keys turn your head
     const turn = (keys['arrowleft'] ? 1 : 0) - (keys['arrowright'] ? 1 : 0);
     if (turn) player.yaw += turn * 2.0 * dt;
-    const mag = night.phase !== 'off' ? 0 : Math.min(1, Math.hypot(f, s));
+    const mag = Math.min(1, Math.hypot(f, s));
     if (mag > 0.05) {
-      const spd = (keys['shift'] ? 2.2 : 1.35) * mag * dt, n = Math.hypot(f, s);
+      const spd = (keys['shift'] ? 2.0 : 1.25) * mag * dt, n = Math.hypot(f, s);
       const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
       const mx = (fx * f + rx * s) / n * spd, mz = (fz * f + rz * s) / n * spd;
       if (!blocked(player.x + mx, player.z)) player.x += mx;
       if (!blocked(player.x, player.z + mz)) player.z += mz;
     }
   }
-  if (cut.active) tickCutscene(dt);
+  if (view) { camera.position.set(...view.pos); camera.lookAt(...view.look); }
   else {
-    camera.position.set(player.x, player.eye ?? EYE, player.z);
+    camera.position.set(player.x, rooms[player.room].floorY + (player.eye ?? EYE), player.z);
     camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
   }
 
@@ -1422,113 +775,12 @@ function tick() {
   if (target) setGlow(target, 0.06 + (reduceMotion ? 0 : Math.sin(t * 4) * 0.03));
   $('reticle').classList.toggle('on', !!target);
   const p = $('prompt');
-  if (night.phase === 'snake' && adder.headY < 2.3 && !cardOpen) { p.hidden = false; p.textContent = (isTouch ? 'Tap: ' : 'E or click: ') + 'strike the rope!'; }
-  else if (target && !cardOpen && !talkOpen && !deduceOpen && !moving) { p.hidden = false; p.textContent = (isTouch ? 'Tap: ' : 'E: ') + CLUES[target.id].verb.toLowerCase(); }
+  if (target && !cardOpen && !moving) { p.hidden = false; p.textContent = (isTouch ? 'Tap: ' : 'E: ') + CLUES[target.id].verb.toLowerCase(); }
   else p.hidden = true;
 
-  if (night.phase !== 'off') tickNight(dt);
-  updateSnake();
-
-  // Dr. Roylott: once Helen has told her story (or you've found most of the evidence) he storms in
-  if (roy && ready) {
-    const door = juliaDoor.userData.hinge, closed = juliaDoor.userData.closedY;
-    const dDoor = Math.hypot(player.x - 1.75, player.z - 1.5);
-    if (roy.state === 'waiting' && playing && player.room === 0 && !cardOpen && !talkOpen && !deduceOpen && !moving
-        && (milestones[2].shown || keyFound() >= 5) && dDoor > 1.3) {
-      roy.wait += dt;
-      if (roy.wait > 2.5) { roy.state = 'opening'; roy.t = 0; roy.root.visible = true; julia.colliders.push(roy.collider); showWhere('The door bursts open'); }
-    }
-    roy.t += dt;
-    const ease = x => x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x);
-    if (roy.state === 'opening') {
-      door.rotation.y = closed - 1.5 * ease(roy.t / 0.35);   // swings out into the corridor, out of the way
-      roy.lamp.intensity = 3.2 * ease(roy.t / 0.35);
-      roy.root.position.x = 2.55 - 0.8 * ease((roy.t - 0.25) / 0.7);
-      if (roy.t > 1.0) { roy.state = 'present'; roy.focus = 1.4; openTalk('roylott'); }
-    } else if (roy.state === 'leaving') {
-      roy.root.position.x = 1.75 + 0.8 * ease(roy.t / 0.7);
-      door.rotation.y = closed - 1.5 * (1 - ease((roy.t - 0.6) / 0.25));
-      roy.lamp.intensity = 3.2 * (1 - ease((roy.t - 0.6) / 0.25));
-      if (roy.t > 0.9) {
-        roy.state = 'gone'; roy.done = true; roy.root.visible = false; door.rotation.y = closed; roy.lamp.intensity = 0;
-        const i = julia.colliders.indexOf(roy.collider); if (i >= 0) julia.colliders.splice(i, 1);
-        showWhere('The door slams behind him'); nextMilestone();
-      }
-    }
-    // Holmes turns to face him, with his face above the dialogue panel
-    if (roy.state === 'opening' || (roy.focus ?? 0) > 0) {
-      roy.focus = Math.max(0, (roy.focus ?? 0) - dt);
-      const rp = roy.root.position, dx = rp.x - player.x, dz = rp.z - player.z, dist = Math.hypot(dx, dz);
-      let wantYaw = Math.atan2(-dx, -dz), dy = wantYaw - player.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-      const wantPitch = Math.atan2(1.75 - EYE, dist) - (talkOpen ? 0.36 : 0);
-      const k = 1 - Math.exp(-5 * dt);
-      player.yaw += dy * k; player.pitch += (wantPitch - player.pitch) * k;
-    }
-    if (roy.root.visible && roy.state !== 'seated') {
-      // glare at Holmes, breathe hard, raise the crop when he threatens, strike the door-frame
-      const rp = roy.root.position;
-      let rel = Math.atan2(player.x - rp.x, player.z - rp.z) - roy.root.rotation.y; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-      roy.yaw += (THREE.MathUtils.clamp(rel, -0.7, 0.7) - roy.yaw) * (1 - Math.exp(-4 * dt));
-      roy.threat = Math.max(0, roy.threat - dt);
-      roy.strike = Math.max(0, roy.strike - dt * 1.6);
-      const raise = roy.threat > 0 ? 1 : 0.25;
-      roy.raise = (roy.raise ?? 0) + (raise - (roy.raise ?? 0)) * (1 - Math.exp(-5 * dt));
-      const swing = roy.strike > 0 ? Math.sin((1 - roy.strike) * Math.PI) * 1.2 : 0;   // up, then down hard
-      if (roy.head) roy.head.quaternion.setFromEuler(new THREE.Euler(-0.08, roy.yaw, 0, 'YXZ')).multiply(roy.head.userData.q0);
-      if (roy.armR) roy.armR.quaternion.copy(roy.armR.userData.q0).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.9 * roy.raise - swing, 0, 0)));
-      if (roy.elbowR) roy.elbowR.quaternion.copy(roy.elbowR.userData.q0).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.5 * roy.raise + swing * 0.6, 0, 0)));
-      if (roy.body && !reduceMotion) roy.body.scale.y = 1 + Math.sin(t * 3.2) * 0.008;
-      roy.blink -= dt; if (roy.blink <= 0) { roy.blinkT = 0.12; roy.blink = 3 + Math.random() * 3; }
-      roy.blinkT -= dt;
-      for (const e of roy.eyes) e.scale.y = e.userData.s0.y * (roy.blinkT > 0 ? 0.1 : 0.6);   // a narrow glare
-    }
-  }
-
-  // Helen: follows you with her eyes and head, breathes, blinks, gestures while she talks
-  if (helenRig) {
-    const h = helenRig, hp = h.root.position;
-    let wantYaw = 0, wantPitch = 0;
-    const lookAt = roy && roy.root.visible ? { x: roy.root.position.x, z: roy.root.position.z } : { x: player.x, z: player.z };
-    if (player.room === 0) {
-      const dx = lookAt.x - hp.x, dz = lookAt.z - hp.z, dist = Math.hypot(dx, dz);
-      let rel = Math.atan2(dx, dz) - h.root.rotation.y; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-      if (Math.abs(rel) < 1.6 && dist < 5) { wantYaw = THREE.MathUtils.clamp(rel, -0.85, 0.85); wantPitch = -THREE.MathUtils.clamp(Math.atan2(EYE - 1.52, dist), -0.3, 0.35); }
-    }
-    const k = 1 - Math.exp(-4 * dt);
-    h.yaw += (wantYaw - h.yaw) * k; h.pitch += (wantPitch - h.pitch) * k;
-    h.talk = Math.max(0, h.talk - dt);
-    h.gesture += ((h.talk > 0 ? 1 : 0) - h.gesture) * (1 - Math.exp(-3 * dt));
-    const nod = h.talk > 0 && !reduceMotion ? Math.sin(t * 5) * 0.04 : 0;
-    if (h.head) h.head.quaternion.setFromEuler(new THREE.Euler(h.pitch + nod, h.yaw, 0, 'YXZ')).multiply(h.head.userData.q0);
-    const sway = reduceMotion ? 0 : Math.sin(t * 0.9) * 0.03;
-    if (h.armR) h.armR.quaternion.copy(h.armR.userData.q0).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.5 * h.gesture + sway, 0, 0)));
-    if (h.foreR) h.foreR.quaternion.copy(h.foreR.userData.q0).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.0 * h.gesture, 0, 0)));
-    if (h.armL) h.armL.quaternion.copy(h.armL.userData.q0).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-sway * 0.6, 0, 0)));
-    if (h.body && !reduceMotion) h.body.scale.y = h.body.userData.s0.y * (1 + Math.sin(t * 2.2) * 0.005);
-    h.blink -= dt; if (h.blink <= 0) { h.blinkT = 0.14; h.blink = 2.5 + Math.random() * 3; }
-    h.blinkT -= dt;
-    for (const e of h.eyes) e.scale.y += ((h.blinkT > 0 ? 0.1 : 1) - e.scale.y) * (1 - Math.exp(-30 * dt));
-  }
-
-  // bell-rope sways from its hook when pulled
-  if (parts.bell_rope) {
-    anim.ropeV += (-anim.rope * 9 - anim.ropeV * 1.2) * dt; anim.rope += anim.ropeV * dt;
-    parts.bell_rope.rotation.x = anim.rope * 0.35;
-    parts.bell_rope.rotation.z = Math.sin(t * 0.6) * 0.004 + anim.rope * 0.12;
-  }
-  // the safe door rattles on its hinge but holds
-  if (parts.safe_door) {
-    anim.safe = Math.max(0, anim.safe - dt * 1.6);
-    parts.safe_door.rotation.y = (anim.safeOpen || 0) + Math.sin(anim.safe * 40) * anim.safe * 0.025;   // open (ending) plus any rattle
-  }
-  for (const [n, dir] of [['chest_drawer_1a', 1], ['dressing_table_drawer', -1]]) {
-    const d = parts[n]; if (!d) continue;
-    d.userData.base ??= d.position.x;
-    const want = anim.drawers[n] ? 0.22 * dir : 0;
-    d.position.x += (d.userData.base + want - d.position.x) * (1 - Math.exp(-6 * dt));
-  }
   for (const r of rooms) for (const l of r.lights) if (l.flicker && l.on) l.L.intensity = l.base * (reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 9 + l.seed) * Math.sin(t * 5.3 + l.seed * 2));
-  for (const fl of flames) { if (!reduceMotion) { fl.scale.y = 1 + Math.sin(t * 11 + fl.id) * 0.08; fl.rotation.z = Math.sin(t * 3 + fl.id) * 0.05; } }
+  for (const gl of glows) gl.L.intensity = gl.base * (reduceMotion ? 1 : 0.82 + 0.18 * Math.sin(t * 7 + gl.seed) * Math.sin(t * 3.1 + gl.seed));
+  for (const fl of flames) { if (!reduceMotion) { fl.scale.y = 2.3 + Math.sin(t * 11 + fl.id) * 0.18; fl.rotation.z = Math.sin(t * 3 + fl.id) * 0.05; } }
 
   renderer.render(scene, camera);
   requestAnimationFrame(tick);

@@ -1,0 +1,12 @@
+{
+  "name": "the-magic",
+  "private": true,
+  "description": "A first-person browser game adapted from Frances Hodgson Burnett's A Little Princess (1905).",
+  "scripts": {
+    "build": "python tools/build.py",
+    "smoke": "node tools/test/smoke.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.50.0"
+  }
+}

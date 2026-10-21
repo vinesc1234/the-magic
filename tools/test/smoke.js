@@ -1,5 +1,5 @@
-// Smoke test: load the game, skip the prologue, start, and make sure nothing errors.
-//   node tools/test/smoke.js http://localhost:8000/            (serve dist/netlify/speckled-band first)
+// Smoke test: load the game, skip any prologue, start, and make sure nothing errors.
+//   node tools/test/smoke.js http://localhost:8000/            (serve dist/netlify/the-magic first)
 // Needs Playwright: npm i -D playwright && npx playwright install chromium
 const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
 (async () => {
@@ -13,7 +13,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
   await page.waitForFunction(() => !document.getElementById('begin').disabled, null, { timeout: 120000 });
   const status = await page.textContent('#status');
   if (status.trim()) errors.push('load status: ' + status);
-  await page.click('#prologueBtn'); await page.waitForTimeout(300);
+  if (await page.isVisible('#prologueBtn')) { await page.click('#prologueBtn'); await page.waitForTimeout(300); }   // only if this game has a prologue
   await page.click('#begin'); await page.waitForTimeout(1500);
   await page.evaluate(() => document.exitPointerLock && document.exitPointerLock());   // the game captures the mouse on start
   await page.screenshot({ path: process.argv[3] || 'smoke.png', timeout: 120000 });

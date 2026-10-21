@@ -1,7 +1,7 @@
 # Netlify builds the game from this repo on every push to main.
 [build]
   command = "python3 tools/build.py"
-  publish = "dist/netlify/speckled-band"
+  publish = "dist/netlify/the-magic"
 
 [[headers]]
   for = "/*"
