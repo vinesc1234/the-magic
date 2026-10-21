@@ -1,0 +1,219 @@
+<title>The Speckled Band</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Crimson+Pro:wght@400;600&display=swap">
+<style>
+/* Layout: full-bleed first-person room. HUD in the corners; clue findings arrive as an aged-paper card
+   at the bottom, like a page torn from Watson's notebook. One deliberate dark look in both themes. */
+:root {
+  --night: #120f0d;            /* page ground */
+  --ink: #2a1f17;              /* text on paper */
+  --paper: #e6dcc4;            /* aged paper */
+  --paper-edge: #cbbd9c;
+  --panel: rgba(18, 15, 13, 0.72);
+  --candle: #e8a64a;           /* candle amber */
+  --blood: #8e2a2a;            /* red accent */
+  --mist: #c9c1b0;             /* HUD text */
+  --display: "IM Fell English SC", "IM Fell English", Georgia, "Times New Roman", serif;
+  --italic: "IM Fell English", Georgia, serif;
+  --body: "Crimson Pro", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--night); color: var(--mist); font-family: var(--body); overflow: hidden; }
+#stage { position: fixed; inset: 0; touch-action: none; }
+#stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+
+.hud { position: fixed; z-index: 2; background: var(--panel); border-radius: 6px; }
+.title { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; padding: 9px 14px 10px; display: grid; gap: 2px; }
+.title h1 { margin: 0; font: 400 21px/1.1 var(--display); color: var(--paper); letter-spacing: 0.02em; }
+.title p { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.title p b { color: var(--candle); font-weight: 600; }
+
+.nbtn { top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px; border: 0; color: var(--paper); font: 600 15px var(--body); padding: 9px 14px; cursor: pointer; }
+.nbtn:focus-visible, .prompt:focus-visible, .card button:focus-visible, .begin:focus-visible { outline: 2px solid var(--candle); outline-offset: 2px; }
+
+.notebook { position: fixed; z-index: 3; top: calc(64px + env(safe-area-inset-top, 0px)); right: 16px; width: min(320px, calc(100vw - 32px)); max-height: 60vh; overflow: auto; padding: 14px 16px; background: var(--paper); color: var(--ink); border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.notebook h2 { margin: 0 0 8px; font: 400 19px var(--display); }
+.notebook ol { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 8px; counter-reset: nb; }
+.notebook li { position: relative; padding-left: 22px; }
+.notebook li:not(.nbhead)::before { counter-increment: nb; content: counter(nb) "."; position: absolute; left: 0; top: 0; color: rgba(42,31,23,0.55); font-variant-numeric: tabular-nums; }
+.notebook li.nbhead { counter-reset: nb; padding-left: 0; }
+.notebook li.note::before { content: "•"; counter-increment: none; }
+.notebook li { font-size: 15px; line-height: 1.35; }
+.notebook li b { display: block; font: italic 400 16px var(--italic); }
+.notebook li.nbhead { margin: 6px 0 0; font: 600 11px var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: rgba(42,31,23,0.65); }
+.notebook li.missing { font-style: italic; color: rgba(42,31,23,0.6); }
+
+.notebook .empty { margin: 0; font-style: italic; }
+
+.reticle { position: fixed; z-index: 1; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(230,220,196,0.55); pointer-events: none; transition: transform 0.15s, background 0.15s; }
+.reticle.on { transform: scale(1.8); background: var(--candle); }
+
+.help b { color: var(--paper); font-weight: 600; }
+.card button kbd { background: rgba(230,220,196,0.2); margin-left: 4px; }
+@media (pointer: coarse) { .card button kbd { display: none; } }
+.help { left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 9px 13px; font-size: 14px; line-height: 1.5; max-width: min(330px, calc(100vw - 32px)); }
+kbd { font: 600 12px var(--body); color: var(--paper); background: rgba(230,220,196,0.14); border-radius: 3px; padding: 0 5px; }
+
+.prompt { left: 50%; transform: translateX(-50%); bottom: calc(26px + env(safe-area-inset-bottom, 0px)); border: 0; color: var(--paper); font: 400 18px var(--italic); padding: 10px 20px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(232,166,74,0.6); cursor: pointer; white-space: nowrap; }
+
+.card { position: fixed; z-index: 4; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); background: var(--paper); color: var(--ink); padding: 18px 22px 16px; border-radius: 3px; box-shadow: 0 0 0 1px var(--paper-edge) inset, 0 18px 40px rgba(0,0,0,0.6); display: grid; gap: 8px; }
+.card h3 { margin: 0; font: 400 23px/1.15 var(--display); text-wrap: balance; }
+.card p { margin: 0; font-size: 17.5px; line-height: 1.45; }
+.card .said { font: italic 400 18px/1.45 var(--italic); }
+.card footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.card .tag { font: 600 12px var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--blood); }
+.card button { border: 0; background: var(--ink); color: var(--paper); font: 600 15px var(--body); padding: 7px 14px; border-radius: 3px; cursor: pointer; }
+
+.joy { position: fixed; z-index: 3; left: 24px; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: 112px; height: 112px; border-radius: 50%; background: rgba(18,15,13,0.5); box-shadow: inset 0 0 0 1px rgba(230,220,196,0.3); touch-action: none; }
+.joy i { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: var(--paper); opacity: 0.8; }
+
+.intro { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, rgba(40,30,22,0.92), rgba(10,8,7,0.97)); padding-inline: 16px; }
+.intro > div { max-width: 520px; display: grid; gap: 14px; text-align: center; justify-items: center; }
+.intro .eyebrow { font: 600 12px var(--body); letter-spacing: 0.22em; text-transform: uppercase; color: var(--candle); }
+.intro h2 { margin: 0; font: 400 clamp(34px, 7vw, 52px)/1.02 var(--display); color: var(--paper); text-wrap: balance; }
+.intro p { margin: 0; font-size: 18px; line-height: 1.5; color: var(--mist); }
+.intro q { font: italic 400 19px var(--italic); color: var(--paper); }
+.begin { margin-top: 6px; border: 0; background: var(--paper); color: var(--ink); font: 400 20px var(--display); padding: 10px 26px; border-radius: 3px; cursor: pointer; }
+.intro .status { font-size: 14px; min-height: 1.4em; }
+
+.fade { position: fixed; inset: 0; z-index: 5; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.45s; }
+.fade.on { opacity: 1; }
+.where { position: fixed; z-index: 2; left: 50%; top: calc(18px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); font: italic 400 17px var(--italic); color: var(--paper); opacity: 0; transition: opacity 0.6s; pointer-events: none; text-shadow: 0 1px 6px #000; white-space: nowrap; }
+.where.on { opacity: 1; }
+.talk { position: fixed; z-index: 4; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); max-height: min(74vh, 660px); overflow: auto; background: var(--paper); color: var(--ink); padding: 18px 22px; border-radius: 3px; box-shadow: 0 0 0 1px var(--paper-edge) inset, 0 18px 40px rgba(0,0,0,0.6); display: grid; gap: 10px; }
+.talk .who { font: 400 15px var(--display); letter-spacing: 0.06em; color: var(--blood); }
+.talk .said { margin: 0; font: italic 400 18.5px/1.45 var(--italic); }
+.talk .added { margin: 0; font: 600 12px var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--blood); }
+.talk .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 6px; }
+.talk .lbl { grid-column: 1 / -1; margin-top: 4px; font: 600 11px var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: rgba(42,31,23,0.6); }
+.talk .opts button { min-width: 0; text-align: left; border: 0; background: rgba(42,31,23,0.08); color: var(--ink); font: 400 15.5px/1.3 var(--body); padding: 8px 10px; border-radius: 3px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+.talk .opts button:hover { background: rgba(42,31,23,0.16); }
+.talk .opts button:focus-visible { outline: 2px solid var(--blood); outline-offset: 1px; }
+.talk .opts button.ask { font-style: italic; }
+.talk .opts button.shown { color: rgba(42,31,23,0.55); }
+.talk .opts button.leave { grid-column: 1 / -1; background: var(--ink); color: var(--paper); justify-content: center; font-weight: 600; }
+.talk .opts kbd { flex: none; background: var(--ink); color: var(--paper); }
+.talk .opts .leave kbd { background: rgba(230,220,196,0.2); }
+@media (pointer: coarse) { .talk .opts kbd { display: none; } }
+.notebook li.testimony b::after { content: " · testimony"; font: 600 11px var(--body); letter-spacing: 0.06em; text-transform: uppercase; color: #5a6f8e; }
+.dbtn { top: calc(16px + env(safe-area-inset-top, 0px)); right: 128px; border: 0; color: var(--ink); background: var(--candle); font: 600 15px var(--body); padding: 9px 14px; cursor: pointer; box-shadow: 0 0 0 0 rgba(232,166,74,0.6); animation: pulse 2.4s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(232,166,74,0.55); } 70% { box-shadow: 0 0 0 12px rgba(232,166,74,0); } 100% { box-shadow: 0 0 0 0 rgba(232,166,74,0); } }
+.dbtn:focus-visible { outline: 2px solid var(--paper); outline-offset: 2px; }
+.deduce { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; padding: 16px; background: rgba(10,8,7,0.86); }
+.dpaper { width: 100%; max-width: 780px; max-height: calc(100vh - 32px); overflow: auto; background: var(--paper); color: var(--ink); padding: 22px 26px 18px; border-radius: 3px; box-shadow: 0 0 0 1px var(--paper-edge) inset, 0 24px 60px rgba(0,0,0,0.7); display: grid; gap: 12px; }
+.dpaper .eyebrow { font: 600 11px var(--body); letter-spacing: 0.2em; text-transform: uppercase; color: var(--blood); }
+.dpaper h2 { margin: 0; font: 400 30px/1.05 var(--display); text-wrap: balance; }
+.dpaper .dsub { margin: 0; font-size: 16px; line-height: 1.45; }
+.dq { display: grid; gap: 7px; padding-top: 10px; border-top: 1px solid rgba(42,31,23,0.18); }
+.dq h3 { margin: 0; font: 400 21px var(--display); }
+.dq .dopts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 6px; }
+.dq button { min-width: 0; text-align: left; border: 0; background: rgba(42,31,23,0.07); color: var(--ink); font: 400 15.5px/1.3 var(--body); padding: 9px 11px; border-radius: 3px; cursor: pointer; box-shadow: inset 0 0 0 1px transparent; }
+.dq button:hover { background: rgba(42,31,23,0.13); }
+.dq button[aria-pressed="true"] { background: rgba(42,31,23,0.16); box-shadow: inset 0 0 0 2px var(--ink); font-weight: 600; }
+.dq button:focus-visible { outline: 2px solid var(--blood); outline-offset: 1px; }
+.dq .dfb { margin: 0; font: italic 400 16.5px/1.4 var(--italic); }
+.dq .dfb.ok { color: #3d5a2a; }
+.dq .dfb.half { color: #7a5a1a; }
+.dq .dfb.no { color: var(--blood); }
+.dverdict { margin: 0; font: italic 400 18px/1.45 var(--italic); }
+.dpaper footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 6px; }
+.dpaper footer button { border: 0; background: var(--ink); color: var(--paper); font: 600 16px var(--body); padding: 9px 16px; border-radius: 3px; cursor: pointer; }
+.dpaper footer button.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px rgba(42,31,23,0.4); }
+.dpaper footer button:focus-visible { outline: 2px solid var(--blood); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .dbtn { animation: none; } }
+body.cinematic .hud, body.cinematic .reticle, body.cinematic .joy { visibility: hidden; }
+.linkbtn { border: 0; background: none; color: var(--mist); font: 400 15px var(--body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 4px 8px; }
+.linkbtn:focus-visible { outline: 2px solid var(--candle); outline-offset: 2px; }
+.cine { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
+.cine .bar { position: absolute; left: 0; right: 0; height: 11vh; background: #000; }
+.cine .bar.top { top: 0; } .cine .bar.bottom { bottom: 0; }
+.cine p, .cine .ctitle { position: absolute; left: 50%; transform: translateX(-50%); margin: 0; text-align: center; opacity: 0; transition: opacity 0.9s; width: min(90vw, 760px); text-wrap: balance; }
+.cine .on { opacity: 1; }
+.cine .cap { top: 44%; font: 400 clamp(22px, 4vw, 34px) var(--display); color: var(--paper); letter-spacing: 0.05em; }
+.cine .sub { bottom: calc(11vh + 18px); font: italic 400 18px var(--italic); color: var(--mist); }
+.cine .words { top: 38%; font: italic 400 clamp(26px, 5vw, 46px)/1.2 var(--italic); color: var(--paper); }
+.cine .words.on { animation: shiver 0.14s steps(2) infinite; }
+@keyframes shiver { 0% { transform: translate(-50%, 0); } 50% { transform: translate(calc(-50% + 1.5px), -1px); } 100% { transform: translate(-50%, 1px); } }
+.cine .ctitle { top: 41%; font: 400 clamp(40px, 8vw, 76px)/1 var(--display); color: var(--paper); }
+.cine .skip { position: absolute; right: 18px; bottom: calc(2.5vh + env(safe-area-inset-bottom, 0px)); pointer-events: auto; background: transparent; border: 1px solid rgba(230,220,196,0.4); color: var(--paper); font: 600 14px var(--body); padding: 6px 14px; border-radius: 3px; cursor: pointer; }
+.cine .skip:focus-visible { outline: 2px solid var(--candle); outline-offset: 2px; }
+@media (pointer: coarse) { .cine .skip kbd { display: none; } }
+@media (prefers-reduced-motion: reduce) { .cine .words.on { animation: none; } .cine p, .cine .ctitle { transition: none; } }
+@media (max-width: 560px) {
+  .dbtn { top: calc(64px + env(safe-area-inset-top, 0px)); right: 16px; }
+  .dpaper { padding: 16px 16px 14px; }
+  .dpaper h2 { font-size: 25px; }
+  .talk { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); max-height: 70vh; padding: 14px 16px; }
+  .where { top: calc(84px + env(safe-area-inset-top, 0px)); }
+  .help { display: none; }
+  .prompt { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+  .card { bottom: calc(146px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) { .reticle { transition: none; } }
+</style>
+
+<div id="stage"></div>
+<div class="reticle" id="reticle"></div>
+
+<div class="hud title"><h1>The Speckled Band</h1><p>Key evidence <b id="keyCount">0 of 7</b> · Notes <span id="noteCount">0</span></p></div>
+<button class="hud nbtn" id="nbtn" aria-expanded="false">Notebook</button>
+<button class="hud dbtn" id="dbtn" hidden>Make the deduction</button>
+<div class="notebook" id="notebook" hidden><h2>Notebook</h2><p class="empty" id="nbEmpty">Nothing noted yet.</p><ol id="nbList"></ol></div>
+<div class="hud help" id="help"><b>Click the room</b>, then move the mouse to look (or drag) · <kbd>←</kbd><kbd>→</kbd> turn · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>E</kbd> examine or talk · <kbd>Tab</kbd> notebook · <kbd>Esc</kbd> frees the mouse</div>
+<button class="hud prompt" id="prompt" hidden></button>
+<div class="joy" id="joy" hidden><i></i></div>
+<div class="fade" id="fade"></div>
+<div class="where" id="where" aria-live="polite"></div>
+
+<section class="talk" id="talk" hidden aria-live="polite" aria-label="Talking to Helen Stoner">
+  <div class="who">Helen Stoner</div>
+  <p class="said" id="talkLine"></p>
+  <p class="added" id="talkAdded" hidden></p>
+  <div class="opts" id="talkOpts"></div>
+</section>
+
+<section class="deduce" id="deduce" hidden role="dialog" aria-modal="true" aria-labelledby="dTitle">
+  <div class="dpaper">
+    <span class="eyebrow">Baker Street reasoning</span>
+    <h2 id="dTitle">Set the facts in order</h2>
+    <p class="dsub">Choose an answer to each question, then put your reasoning to the test. Your notebook holds everything you need.</p>
+    <div id="dQs"></div>
+    <p class="dverdict" id="dVerdict" hidden></p>
+    <footer><button id="dClose" class="ghost">Back to the house</button><button id="dCheck">Put it to the test</button></footer>
+  </div>
+</section>
+
+<section class="card" id="card" hidden aria-live="polite">
+  <h3 id="cardTitle"></h3>
+  <p class="said" id="cardText"></p>
+  <footer><span class="tag" id="cardTag"></span><button id="cardClose">Continue <kbd>E</kbd></button></footer>
+</section>
+
+<div class="cine" id="cine" hidden>
+  <div class="bar top"></div><div class="bar bottom"></div>
+  <p class="cap" id="cineCap"></p>
+  <p class="sub" id="cineSub"></p>
+  <p class="words" id="cineWords"></p>
+  <h2 class="ctitle" id="cineTitle"></h2>
+  <button class="skip" id="cineSkip">Skip <kbd>Esc</kbd></button>
+</div>
+
+<div class="intro" id="intro"><div>
+  <span class="eyebrow">Stoke Moran, Surrey · April 1883</span>
+  <h2>The Speckled Band</h2>
+  <p>Two years ago Julia Stoner died in this room, crying out <q>It was the band! The speckled band!</q> Her sister Helen sleeps here now, and last night she heard a low, clear whistle in the dark.</p>
+  <p>You are Sherlock Holmes. Dr. Roylott is away in town. Search her room, then his, and show Helen what you find.</p>
+  <button class="begin" id="begin" disabled>Loading the house…</button>
+  <button class="linkbtn" id="prologueBtn" hidden>Skip the prologue</button>
+  <span class="status" id="status"></span>
+</div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>

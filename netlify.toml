@@ -1,0 +1,14 @@
+# Netlify builds the game from this repo on every push to main.
+[build]
+  command = "python3 tools/build.py"
+  publish = "dist/netlify/speckled-band"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/models/*"
+  [headers.values]
+    Content-Type = "model/gltf-binary"
