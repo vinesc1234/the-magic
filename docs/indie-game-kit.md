@@ -17,6 +17,7 @@ Use this for every new game in this project. It is the process and lessons from 
 5. **Build in steps:** room → clues → notebook → characters → the core mechanic → ending → intro cutscene → sound and phone polish. Playtest after each step.
 6. **Ship:** artifact for quick play, Netlify zip for the public link.
 7. **Portfolio:** screenshot plus a case study on sarahvresume, using the same headings as the other entries.
+- **Check the floor plan against the source text before building it.** Search the text for where each room and each window actually is. (On The Magic the plan put the key character in a lit window across a gap. The novel has his attic next door along the same roof, so the outside had to be rebuilt after milestone 1.)
 
 ## Model rules for Claude Design (each one cost us a fix)
 - **Small clue details stand proud and contrast.** Say "raised 3 cm from the wall, lighter than the wallpaper", never "set into the wall". (The ventilator, the most important clue, was flush and dark, so nobody could find it.)
@@ -34,6 +35,8 @@ Use this for every new game in this project. It is the process and lessons from 
 - **Overlays need `position: fixed`** and a z-index. Hide the HUD during cutscenes.
 - **Old or unusual words from the source** (like "dog lash") stay, but get glossed in the clue text.
 - **Decide the realism level before modelling, not after.** On Oct 16 we tried a "realistic look" pass on The Speckled Band: code-drawn textures, corner shading, bloom, reflections and a film grade. It cost twice the drawing work and players couldn't see the difference. Simple shapes stay simple-looking whatever the lighting does. Real realism needs photo-scanned textures (Poly Haven, CC0) and more detailed models from the start. The experiment's code is kept as bed/body.js.look-experiment if ever wanted.
+- **Lights without shadows go through walls.** A light in a room the player only sees through glass must be short-ranged and set deep inside it, or it lights the brick outside. Make the room's walls glow a little instead. (The Magic's lit room lit the whole facade.)
+- **Set eye height for the player character.** 1.72 m is an adult. A child is about 1.38 m, and every sightline and reach changes with it.
 
 ## Delivery rules
 - **Artifact:** embed the models in the page as base64 `<script type="application/octet-stream">` tags. Decode with the tolerant decoder (never atob()) and check each starts with "glTF". **Do not load models as separate files next to an artifact.** The viewer doesn't serve them, and that broke the game twice.
@@ -47,6 +50,7 @@ Use this for every new game in this project. It is the process and lessons from 
 - **Tests click buttons,** not only press keys.
 - **Take before and after screenshots** for any lighting or look change.
 - **When replacing a big block of code,** re-check every event handler that lived in it.
+- **Measure sightlines in the test, don't judge them from one screenshot.** Sample every spot the player can stand on and count the clear lines to the thing that must (or must not) be seen. Make the test fail if the count goes wrong. One screenshot made a 34% sightline look like "almost everywhere".
 
 ## Cost habits
 - **One milestone per session.** Paste the brief and attach only the files that step needs.

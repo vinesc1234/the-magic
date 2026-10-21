@@ -1,62 +1,90 @@
-GAME BRIEF: The Speckled Band
+GAME BRIEF: The Magic
 
-Source IP: "The Adventure of the Speckled Band" by Arthur Conan Doyle (1892), public domain in the US. Use only the original story; no look, lines or music from modern adaptations.
-One-line pitch: As Sherlock Holmes, search two rooms at Stoke Moran, confront the people involved with your evidence, name the killer's method, then keep watch in the dark for the final moment.
-Platform: single-page browser game, desktop and phone
-Tech: Three.js 0.160. Source (without models) is about 110 KB; the 7 models are made in Claude Design.
-- Artifact version: models embedded in the page as base64 <script type="application/octet-stream" id="glb-..."> tags (page about 11 MB). Decoded with the page's own tolerant base64 decoder, never atob(); each must start with "glTF". Build: bed/build.py (head.part + body.js = src.html, then embed). Separate models/*.txt files next to the artifact were tried on Oct 13 and FAILED in the viewer ("incomplete model", then 404s): don't do that again.
-- Netlify version: models/<name>.glb fetched directly (see claude/speckled-band-netlify.md). Built from the same source by netbuild.py; test it separately.
-- Shrink each GLB losslessly first with gltf-transform `dedup` then `weld`. Don't use `quantize` without re-checking positions.
-- Loading shows "Loading the house… n of 7"; any failure shows "Reload the game".
+Source IP: "A Little Princess" by Frances Hodgson Burnett (1905), public domain. The novel only (Project Gutenberg #146): no look, lines or music from any film or stage version. All dialogue is original.
+One-line pitch: As Sara Crewe, cold and hungry in Miss Minchin's attic, find out who has been coming in at night and changing the room while she sleeps: who, how, and why.
+Platform: single-page browser game, desktop and phone, generated sound
+Tech: Three.js 0.160, the Speckled Band engine (src/game.js, src/page.html, tools/build.py). Models from Claude Design (docs/design-prompts.md).
+- Artifact version: models embedded as base64 <script type="application/octet-stream" id="glb-..."> tags, decoded with decodeBase64 (never atob), each checked for "glTF".
+- Netlify version: models/<name>.glb fetched. Same source, its own loader; test it separately.
+- The model list lives in one place: `const MODELS = [...]` in src/game.js. tools/build.py reads it.
+- Repo: the-magic (local: C:\Users\vines\Projects\the-magic). Netlify builds from it once linked; no zips.
 
-STATUS: Steps 1-7 DONE plus the prologue cutscene. Playable start to finish. On Oct 13: visible ventilator grilles built in code (the model's was flush and invisible), brighter lighting (exposure 1.4, ambient 1.2, ceiling fill per room, off at night and in the prologue). Added to the portfolio site. Remaining: step 8 (in-game sound and phone polish).
+STATUS: Milestone 1 (the shell) DONE, rebuilt to follow the book's geography (see "Changed from the plan"). No models yet: furniture is code-built stand-ins on the footprints the Design prompts ask for. Design prompts written for all seven models.
+Next step: Milestone 2, the cold clues (1, 2 and 3 below), examinable with glow and cards. No Design work needed for it; the GLBs can arrive in parallel.
 
-Player role: Holmes (first person, no player model)
-Controls: click the room to capture the mouse, then move the mouse to look (Esc frees it; click-and-drag also works). Left/Right arrows turn. WASD walk. E examine / talk / use doors / close cards. Conversations: number keys pick, Esc leaves. Tab or the Notebook button. "Make the deduction" button appears once unlocked. Night watch: E, Space, Enter, a click, or tapping the prompt strikes the rope. Prologue: Esc or the Skip button. Phone: left stick, drag to look, tap buttons.
-Mouse-look note: ignore the first 2 mouse moves after capture and any single move over 150 px.
-Camera: first person, eye height 1.72 m (1.25 m seated during the night watch)
+THE STORY THE PLAYER IS REACHING (all from the novel)
+Ram Dass, the Indian gentleman's servant, lives in the attic next door. Sara met him once, when his monkey ran across the slates into her attic and she spoke to him in Hindustani. He watches her from his skylight and has told his sick master about her. Together with the master's young secretary he looked over her attic while she was out, and on the night of the spoiled feast he crept in with a dark lantern while she slept, the secretary handing things through the skylight. Sara can work out who, how and why. She cannot work out that Mr. Carrisford is searching for her: that is the ending's job.
 
-NOTEBOOK: fixed-position panel (it was once invisible behind the canvas for lack of position: fixed). Lists all 7 key evidence slots from the start: found ones show Holmes's full note, unfound ones say "Not yet found · somewhere in <room>". Then "Notes and testimony" as bullets.
+Player role: Sara, first person, no player model. She is eleven: eye height 1.38 m (the kit's default is 1.72 m, Holmes's).
+Controls: as The Speckled Band. Click to capture the mouse (Esc frees it; drag also works), arrows turn, WASD walk, E examine / use. On the table you can only look around. Phone: left stick, drag to look, tap the prompt.
+Mood: cold, then warm. The cold half is the control group: the player must have looked at the bare room for the change to mean anything.
 
-START SCREENS AND PROLOGUE
-- Loading, then first visit: "A Sherlock Holmes mystery / Best with the sound on", Begin (plays the prologue; the click unlocks sound) and "Skip the prologue". Later visits (localStorage speckled-prologue-seen) go straight to the story screen with a "Watch the prologue" link.
-- Prologue (~36 s, in-engine, letterboxed, HUD hidden via body.cinematic): captions, Julia's room by night, rain, wind, lightning and thunder, camera to the bed and up the bell-rope, a low whistle, the snake's head at the grille with a hiss, a scream, black, "Helen! It was the band! The speckled band!", the title. CUT_KEYS / tickCutscene; endCutscene restores everything.
-- Generated Web Audio (sfx): startStorm/stopStorm, thunder, whistle, hiss, scream. Reuse for step 8.
+CHANGED FROM THE PLAN (and why)
+- No lit window across a gap. The plan put Carrisford in a lit window opposite, watching. The novel has the Indian gentleman's house next door in the same row, and Ram Dass's attic "a few yards" along the slates from Sara's. The outside was rebuilt to match (user decision, Oct 21).
+- Sara climbs onto the old table to look out of the skylight, as in the book. From the floor it shows "nothing but an oblong piece of dull gray sky".
+- Furniture follows the book: an old iron bedstead, an old table under the skylight, the battered red footstool. Not a mattress on the boards and a stool.
+- Clues 2, 3 and 5 changed to things the book supports (two men came, one with soft feet; his parcels were "in readiness in the attic which was his own"; he used a dark lantern). The monkey is not in the attic on that night, so no monkey prints.
+- No skylight.glb: the skylight is cut through the code-built roof, and its catch (clue 1) is built in code, raised and bright. Seven models, not eight.
+- The stairhead is not a walkable space: the two attic doors take you straight between the attics (fade), as The Speckled Band's doors did.
 
-STORY FLOW AS BUILT
-1. Julia's bedroom: key clues bell_rope, ventilator, bed; notes window, chimney, chest, dressing.
-2. Door (fade) to Dr. Roylott's room: key clues safe, saucer, lash, chair; notes vent_back, camp_bed, books.
-3. Notebook (above).
-4. Helen: ask about the night / Dr. Roylott; show evidence. Testimony: whistle, last_words, motive, clang, cigars.
-5. Roylott storms in (after Helen's account or 5+ key clues); testimony: animals; parting threat.
-6. Deduction: who / how / why with hints; solution card.
-7. Night watch and ending (snake down the rope, timed strike, retry on a miss, final tableau, The End screen).
-Easy-to-miss clues: the dog lash (low, on the corner of the camp bed; "lash" is Doyle's word for a whip, players may read it as "leash") and the saucer (on top of the safe).
+LAYOUT (metres; -z is the front of the roof; Y up)
+- Sara's attic at world origin: floor x -1.5..1.5, z -1.8..1.8. Ceiling slopes from 1.4 m at z -1.8 (the eaves end) to 3.0 m at z 1.8. You can't walk where the ceiling is below 1.5 m.
+- Skylight (all three attics, in each attic's own frame): x -0.4..0.4, under the slope from z -1.70 to -0.85. Glass in an iron sash hinged along its top. Sara's opens (thrown right back) while she is on the table or out on the leads.
+- Becky's attic: group at x 2.92, floor x -1.3..1.3 local. Door at local x -0.65. Sara's door at x 0.85. Both in the back wall.
+- Ram Dass's attic: group at x -3.12, same size as Sara's. Not walkable. Its skylight is propped open (sash at 1.0 rad). Inside, against its far wall: parcels in brown paper and string, a dark lantern on them (lit), and a crimson rug rolled and stood on end at local (-1.25, -0.45).
+- The leads: a flat lead walk at y 1.15, z -2.0..-4.0, behind a 0.45 m parapet. Walkable from the party wall (x -1.62) to Becky's far wall (x 4.34). The party wall between the two houses crosses the leads as a 0.62 m wall and runs up the slates as a low brick course, so Sara sees along the roof to his skylight but can't walk over.
+- The square: street at y -10, the terrace across it at z -26, a few windows lit.
+- Old table under Sara's skylight: x -0.375..0.375, z -1.45..-0.95, 0.68 m high. On it, the candle-end at (0.26, -1.04). Standing on it: eye 2.06 m, head and shoulders out of the skylight.
+- Iron bedstead x -1.5..-0.6, z -0.95..0.95, head at +z. Red footstool at (0.62, -1.0). Cold grate in the back wall at x -0.7. Becky's bedstead local x 0.4..1.3.
+- Arrivals: start at (0.6, 0.55) facing the table and skylight; on the table facing west along the slates; on the leads at (0, -2.42) facing his lit skylight.
 
-CONVERSATIONS: SPEAKERS table. DEDUCTION: DQ table; proof: who = ventilator or vent_back; how = bell_rope, ventilator, bed, saucer, lash, chair; why = motive; WHERE table gives place hints.
+SIGHTLINES (measured by tools/test/shots.js on every run; it fails if these break)
+- From the table: 75% of next door's propped glass in clear view.
+- From the floor of Sara's attic: 0 of 190 standing spots see any of it. Only sky, as in the book.
+- From the leads: 21 of 370 standing spots see at least a quarter of the rolled rug inside his attic (best 50%). They are the spots by the party wall, nearest his skylight, which is where a player goes to look.
 
-Art style: moody Victorian, stylized, soft-shaped. No outlines. Objects glow amber when targeted; people never glow.
-Palette: #2E3B32, #3B2A1E, #E8A64A, #6E86A8, #8E2A2A, #E6DCC4. Fonts: IM Fell English SC, IM Fell English italic, Crimson Pro.
-Scale: 1 unit = 1 metre; Y up; models face +Z
+LIGHTING
+Cold is the default: hemisphere light low and blue, no ceiling fill, one candle-end (intensity 0.9, range 2.6, decay 2) and the moon. One shadowed moon lights the roofs and comes into each attic only through its skylight, as a pale patch on the boards. The only warm light outside is next door's lantern, kept short-ranged and set deep in his attic, because lights without shadows pass through walls (a long-range lamp lit the brick outside it). The warm state will restore a fill and add the fire. Before-and-after screenshots for every lighting change.
 
-LAYOUT
-- Julia's bedroom at world origin, x -2.05..2.05, z -2.252..2.25; door at x 1.15. Ventilator centre (0.45, 2.4, -2.24); rope hook (0.18, 2.4, -2.08).
-- Dr. Roylott's room: group at (0.80, 0, -4.622) rotated 180 degrees, 4.5 x 4.5 m, 12 cm shared wall.
-- Helen (-0.95, 0, 1.25) rot 2.1. Roylott enters at (1.15, 0, 2.0). Night seat (0.95, -1.15).
+CLUE TABLE (six key clues, three before the change and three after; every one gets an empty notebook slot naming its room)
+| # | Clue | Where | State | Exactly where, and how it stands out |
+|---|---|---|---|---|
+| 1 | The skylight catch | Your attic | before | On the inside of the skylight's lower edge, centre, about (0, 1.47, -1.68). Rusted everywhere except one bright scraped arc: it has been worked from outside. Built in code, raised 3 cm, bright metal on the dark frame, with a small cold light on it. Seen from the floor, examined from the table |
+| 2 | Prints on the leads | The leads | before | On the lead below your skylight, x -1.4..0, z -2.1..-2.6, coming from the party wall. Two sets in the damp: a man's boots, and narrow soft prints with no heel ("I can move as if my feet were of velvet"). Pale on dark lead, in moonlight |
+| 3 | The light next door | From the table, and the leads | before | His skylight propped open and lit; from the leads by the party wall, the parcels in string and the rolled crimson rug. Examinable from both places |
+| 4 | The rug | Your attic | after | Thick, warm crimson with a border from India, x -0.55..0.65, z 0.3..1.2, before the fire. The same rug that stood rolled in his attic |
+| 5 | Lamp oil on the table | Your attic | after | Two or three drops of oil and a pale ring on the old table under the skylight, where a lantern was stood. This house has nothing but candle-ends. Raised 1 cm, with a proxy hit box |
+| 6 | Becky's room is untouched | Becky's attic | after | The same cold, the same bare bedstead. Whoever came, came for you |
+Non-key examinables: Emily on the bed, the red footstool, Melchisedec's hole in the skirting, frost on the inside of the glass, the candle-end, the cold grate, the nails in the walls (the secretary was pleased by them: "You can hang things on them"), the knock on the wall to Becky.
 
-MODELS (all DONE). Prompts: claude/speckled-band-design-prompts.md
-bedroom (pillow reshaped in code; ventilator hidden and replaced by a code-built grille), candle (x4), roylott (room; ventilator_back likewise replaced), helen (eyes re-pivoted), grimesby (Dr. Roylott; knees added for the seated ending), adder (6 chained segments; origin is mid-body, snout 0.5 m ahead), cane (rotate the whole model; its tip is a separate piece).
+THE DEDUCTION (unlocks once all six are in the notebook)
+1. Who has been in this room? The Lascar from the attic next door, and someone with him. Proved by 2, 3, 5.
+2. How did they get in? Across the slates and down through the skylight onto the table. Proved by 1, 2, 5.
+3. Why this room? Because he knows you, since the day you gave him back his monkey, and someone in that house wished you well. Proved by 6, 4, 3.
+A fact in the notebook from the start: the Lascar next door and his monkey (chapter 11).
 
-LESSONS FROM THIS BUILD (the full list for future games is in claude/indie-game-kit.md)
-- Embed models in the artifact page; separate files next to an artifact don't load in the viewer.
-- Small clue details must stand out from the wall and contrast with it.
-- Light brighter than feels right, and give dark scenes a deliberate light on whatever the player must see.
-- Test what the player sees, not just state: a panel can be "open" and still invisible.
-- When replacing a big block of code, re-check every event handler that lived in it. Tests should click buttons, not only press keys.
-- Check new models in-game for size and origin before positioning them.
-- Tell the player what to look for (the notebook's empty slots), or they assume content is missing.
+CHARACTERS
+- Becky: fourteen, "so stunted in growth that she looked about twelve", the scullery maid. In the attic next to Sara's; Sara knocks on the wall for her.
+- Ram Dass: the Indian gentleman's servant, "white-swathed", white turban. Speaks with Sara late in the game.
+- The monkey: small, impish, "small black face".
+- Mr. Carrisford: "a haggard, distressed face, and a skeleton body wrapped in furs". Seen only at the ending.
+- Melchisedec: the attic rat (optional).
 
-Game page: https://claude.ai/artifact/1ycAAjvhqEcbjGchW9qDRU
-Source: claude/speckled-band-src.html
+MODELS (prompts: docs/design-prompts.md; none received yet)
+becky, attic_cold, attic_warm, ram_dass, monkey, carrisford, melchisedec (optional). Ask for each back with a screenshot. Check each in game before building on it: size, origin, part names, and how it reads from 1.38 m.
 
-Next step: Step 8, in-game sound and phone polish (no Design work needed).
+BUILD ORDER (one milestone per session; playtest with screenshots after each)
+1. The shell. DONE.
+2. Cold clues 1, 2, 3, with glow and cards. NEXT.
+3. The notebook: six empty slots naming their rooms.
+4. The turn: sleep, and the warm state. The biggest piece; the mood rests on it.
+5. Warm clues 4, 5, 6.
+6. Becky and Ram Dass: dialogue, topics, facts.
+7. The deduction.
+8. The ending.
+9. Intro cutscene, then sound, phone controls and polish.
+
+TESTING
+- node tools/test/smoke.js <url>: loads, starts, fails on any error.
+- node tools/test/shots.js <url> <folder>: ten standing-height views, three top-downs, the sightlines above, and every way between rooms by pressing E (doors both ways; onto the table, out, back in, down; and that the skylight can't be climbed through from the floor).
+- Headless Chromium needs --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader and runs about 1 frame a second.
