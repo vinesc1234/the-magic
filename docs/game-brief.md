@@ -52,6 +52,9 @@ SIGHTLINES (measured by tools/test/shots.js on every run; it fails if these brea
 - From the floor of Sara's attic: 0 of 190 standing spots see any of it. Only sky, as in the book.
 - From the leads: 21 of 370 standing spots see at least a quarter of the rolled rug inside his attic (best 50%). They are the spots by the party wall, nearest his skylight, which is where a player goes to look.
 
+LOOK (its own, not The Speckled Band's: an Edwardian storybook read by candlelight, a little feminine, a little whimsical)
+Fonts: Pinyon Script for the title only; Fraunces at its softest ("SOFT" 100, "WONK" 1), mostly italic, for headings, prompts and place names; EB Garamond for reading. Palette: plum-indigo night #15112a, cream paper #f7efe4 with a blush edge #e6cfc3, plum ink #3b2a3f, candle gold #e9bb6c, dusty rose #c98a9c, moonlight lavender #c7c0ec. Rounded panels (14-20 px), pill buttons, a double hairline (cream and rose) inside every paper panel, a small gold sparkle at the top of each card. The aiming point is a four-point star that turns gold and rotates over something usable. Title screen: twinkling stars, a sparkle flourish under the title. In the world: the night and the moonlight are lavender rather than steel blue, the highlight glow is candle gold (#f0bf78). The notebook is "My book"; the deduction button is "Work it out". Whimsy stays small and quiet; the cold is still cold.
+
 LIGHTING
 Cold is the default: hemisphere light low and blue, no ceiling fill, one candle-end (intensity 0.9, range 2.6, decay 2) and the moon. One shadowed moon lights the roofs and comes into each attic only through its skylight, as a pale patch on the boards. The only warm light outside is next door's lantern, kept short-ranged and set deep in his attic, because lights without shadows pass through walls (a long-range lamp lit the brick outside it). The warm state will restore a fill and add the fire. Before-and-after screenshots for every lighting change.
 

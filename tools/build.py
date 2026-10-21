@@ -81,15 +81,15 @@ meta = '''<!doctype html>
 <meta property="og:title" content="The Magic">
 <meta property="og:description" content="A first-person game from Burnett's A Little Princess. Someone has been coming into the attic while Sara sleeps.">
 <meta property="og:type" content="website">
-<meta name="theme-color" content="#0b0e16">
+<meta name="theme-color" content="#15112a">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">'''
 rest = page[page.index('</title>') + len('</title>'):]
 rest = rest.replace('<style>', '<style>\n*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; }', 1)
 i = rest.index('</style>') + len('</style>')
 web = meta + rest[:i] + '\n</head>\n<body>\n' + rest[i:] + swap_loader(game, FETCHED) + '\n</body>\n</html>\n'
 open(os.path.join(N, 'index.html'), 'w', encoding='utf-8').write(web)
-# a skylight in a dark roof, and across the way one lit window
-open(os.path.join(N, 'favicon.svg'), 'w').write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#0b0e16"/><path d="M8 44 L30 30 L30 52 L8 52 Z" fill="#2b3038"/><path d="M14 43 L24 37 L24 46 L14 50 Z" fill="#9fb6d2" opacity="0.7"/><rect x="40" y="16" width="14" height="18" rx="1" fill="#e8a64a"/><path d="M47 16 V34 M40 25 H54" stroke="#3a2a18" stroke-width="2"/></svg>')
+# a crescent moon and a sparkle, on a plum night
+open(os.path.join(N, 'favicon.svg'), 'w').write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#15112a"/><path d="M38 12a20 20 0 1 0 14 34A16 16 0 1 1 38 12z" fill="#f7efe4"/><path fill="#e9bb6c" d="M46 8C47 15 49 17 56 18C49 19 47 21 46 28C45 21 43 19 36 18C43 17 45 15 46 8Z"/></svg>')
 open(os.path.join(N, 'netlify.toml'), 'w').write('''# Netlify settings for The Magic (a static site: no build step)
 [build]
   publish = "."

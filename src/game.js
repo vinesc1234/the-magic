@@ -18,7 +18,7 @@ renderer.toneMappingExposure = 1.4;   // brighter than pure moonlight so the cor
 renderer.domElement.tabIndex = 0;
 $('stage').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-const NIGHT = '#0b1020';
+const NIGHT = '#16132f';   // a plum-indigo night: cold, but a storybook's cold
 scene.background = new THREE.Color(NIGHT);
 scene.fog = new THREE.FogExp2(NIGHT, 0.03);
 const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.03, 120);   // far enough for the moon
@@ -440,19 +440,19 @@ const glows = [];
 // ---------- sky, moon and the light they give ----------
 const MOON_DIR = new THREE.Vector3(0.12, 0.78, -0.62).normalize();   // high over the house opposite
 {
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(2.4, 48), new THREE.MeshBasicMaterial({ color: '#e9edf6', fog: false }));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(2.4, 48), new THREE.MeshBasicMaterial({ color: '#f6f0fb', fog: false }));
   disc.position.copy(MOON_DIR).multiplyScalar(90); disc.lookAt(0, 0, 0); scene.add(disc);
-  const halo = new THREE.Mesh(new THREE.CircleGeometry(7, 48), new THREE.MeshBasicMaterial({ color: '#8fa3cf', transparent: true, opacity: 0.12, fog: false, depthWrite: false }));
+  const halo = new THREE.Mesh(new THREE.CircleGeometry(7, 48), new THREE.MeshBasicMaterial({ color: '#b9a8e2', transparent: true, opacity: 0.14, fog: false, depthWrite: false }));
   halo.position.copy(MOON_DIR).multiplyScalar(91); halo.lookAt(0, 0, 0); scene.add(halo);
   const pos = [];
   for (let i = 0; i < 260; i++) { const th = rand() * Math.PI * 2, y = 0.12 + rand() * 0.88, r = Math.sqrt(1 - y * y); pos.push(Math.cos(th) * r * 95, y * 95, Math.sin(th) * r * 95); }
   scene.add(new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)),
-    new THREE.PointsMaterial({ color: '#cdd6f5', size: 1.6, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.85 })));
+    new THREE.PointsMaterial({ color: '#efe4ff', size: 1.6, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.85 })));
 }
-const hemi = new THREE.HemisphereLight('#8a98c0', '#2a2c36', 0.95); scene.add(hemi);   // cold is the default; warmth has to be earned
+const hemi = new THREE.HemisphereLight('#a39bd2', '#2e2639', 0.95); scene.add(hemi);   // cold is the default; warmth has to be earned
 // One moon for the whole scene, casting shadows: it lights the leads, and comes into each attic only through
 // its skylight, landing as a pale square on the boards. No light needs to be faked per room.
-const moon = new THREE.DirectionalLight('#b4c4e8', 2.3);
+const moon = new THREE.DirectionalLight('#c9c3ef', 2.3);
 moon.target.position.set(1.4, 0, -2.0); moon.position.copy(moon.target.position).addScaledVector(MOON_DIR, 14);
 moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048);
 Object.assign(moon.shadow.camera, { left: -7.5, right: 7.5, top: 7.5, bottom: -7.5, near: 1, far: 32 });
@@ -695,7 +695,7 @@ function pickTarget() {
 }
 function setGlow(ex, amount) {
   if (!ex || ex.person) return;   // people get the prompt, not a glow
-  for (const m of ex.meshes) { if (m.userData.proxy || !m.material.emissive) continue; m.material.emissive.set('#e8a64a'); m.material.emissiveIntensity = amount; }
+  for (const m of ex.meshes) { if (m.userData.proxy || !m.material.emissive) continue; m.material.emissive.set('#f0bf78'); m.material.emissiveIntensity = amount; }
 }
 function examine() {
   if (!target || cardOpen || moving) return;
@@ -825,7 +825,7 @@ function tick() {
   if (target) setGlow(target, 0.06 + (reduceMotion ? 0 : Math.sin(t * 4) * 0.03));
   $('reticle').classList.toggle('on', !!target);
   const p = $('prompt');
-  if (target && !cardOpen && !moving) { p.hidden = false; p.textContent = (isTouch ? 'Tap: ' : 'E: ') + CLUES[target.id].verb.toLowerCase(); }
+  if (target && !cardOpen && !moving) { p.hidden = false; p.textContent = (isTouch ? 'Tap: ' : 'E: ') + CLUES[target.id].verb; }
   else p.hidden = true;
 
   for (const r of rooms) for (const l of r.lights) if (l.flicker && l.on) l.L.intensity = l.base * (reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 9 + l.seed) * Math.sin(t * 5.3 + l.seed * 2));
