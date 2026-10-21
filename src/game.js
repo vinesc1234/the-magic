@@ -160,7 +160,7 @@ function addDoor(room, x, z, ry) {
 
 // An attic under a pitched roof: a low knee wall at the front (minZ), a tall wall at the back (maxZ), the
 // ceiling following the rafters between them, and a real skylight cut through the slope. The opening has
-// depth, glass and slates round it, so what you see through it is the actual roof and the house opposite,
+// depth, a hinged glass sash and slates round it, so what you see through it is the actual roof and the sky,
 // not a picture. `slope` is a frame lying in the roof (x across, y up the slope, z down into the room), so
 // the hole in the ceiling, its reveal and the hole in the slates are one and the same rectangle.
 function makeAttic({ name, minX, maxX, minZ, maxZ, hLow, hHigh, position, sky, roofT, eaveZ }) {
@@ -210,16 +210,20 @@ function makeAttic({ name, minX, maxX, minZ, maxZ, hLow, hHigh, position, sky, r
   for (const [w, h, x, y, rx, ry] of [[hw, roofT, hxc, hy0, -Math.PI / 2, 0], [hw, roofT, hxc, hy1, Math.PI / 2, 0], [roofT, hh, hx0, hyc, 0, Math.PI / 2], [roofT, hh, hx1, hyc, 0, -Math.PI / 2]]) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), revealMat); m.position.set(x, y, -roofT / 2); m.rotation.set(rx, ry, 0); slope.add(shell(m));
   }
-  // inside: a wooden lining round the opening. Outside: the raised kerb the glass sits on. (No glazing bar: it
-  // would run straight down the middle of the view to the lit window, which is the whole point of the opening.)
+  // inside: a wooden lining round the opening. Outside: the raised kerb the sash sits on.
   const lining = new THREE.Group(), kerb = new THREE.Group(); slope.add(lining, kerb);
   const t = 0.05, k = 0.07, kz = -roofT - k / 2, kerbMat = new THREE.MeshStandardMaterial({ color: '#3b4038', roughness: 0.6 });
   bar(lining, hw + 2 * t, t, 0.025, hxc, hy0 - t / 2, 0.012, woodMat); bar(lining, hw + 2 * t, t, 0.025, hxc, hy1 + t / 2, 0.012, woodMat);
   bar(lining, t, hh, 0.025, hx0 - t / 2, hyc, 0.012, woodMat); bar(lining, t, hh, 0.025, hx1 + t / 2, hyc, 0.012, woodMat);
   bar(kerb, hw + 2 * k, k, k, hxc, hy0 - k / 2, kz, kerbMat); bar(kerb, hw + 2 * k, k, k, hxc, hy1 + k / 2, kz, kerbMat);
   bar(kerb, k, hh, k, hx0 - k / 2, hyc, kz, kerbMat); bar(kerb, k, hh, k, hx1 + k / 2, hyc, kz, kerbMat);
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(hw + 0.04, hh + 0.04), new THREE.MeshStandardMaterial({ color: '#9fb6d2', transparent: true, opacity: 0.14, roughness: 0.08, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false }));
-  glass.position.set(hxc, hyc, -roofT - 0.045); slope.add(glass);
+  // the sash: a light iron frame and its glass, hinged along the top so the bottom lifts and can be propped open
+  const hinge = new THREE.Group(); hinge.position.set(hxc, hy1 + k, -roofT - k); slope.add(hinge);
+  const sashMat = new THREE.MeshStandardMaterial({ color: '#2b2e2c', metalness: 0.4, roughness: 0.6 }), sw = hw + 2 * k, sh = hh + 2 * k, f = 0.035;
+  bar(hinge, sw, f, f, 0, -f / 2, -f / 2, sashMat); bar(hinge, sw, f, f, 0, -sh + f / 2, -f / 2, sashMat);
+  bar(hinge, f, sh, f, -sw / 2 + f / 2, -sh / 2, -f / 2, sashMat); bar(hinge, f, sh, f, sw / 2 - f / 2, -sh / 2, -f / 2, sashMat);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(sw - 2 * f, sh - 2 * f), new THREE.MeshStandardMaterial({ color: '#9fb6d2', transparent: true, opacity: 0.14, roughness: 0.08, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false }));
+  glass.position.set(0, -sh / 2, -f / 2); hinge.add(glass);
   // invisible targets filling the opening: one just inside the glass, one just outside it
   const inside = new THREE.Group(), outside = new THREE.Group(); slope.add(inside, outside);
   proxy(inside, new THREE.BoxGeometry(hw, hh, 0.02), hxc, hyc, -0.02);
@@ -230,7 +234,7 @@ function makeAttic({ name, minX, maxX, minZ, maxZ, hLow, hHigh, position, sky, r
   for (let x = hx1 + 0.68; x < maxX - 0.15; x += 0.62) rafterXs.push(x);
   for (const x of rafterXs) bar(slope, 0.06, L, 0.09, x, L / 2, 0.045, rafterMat);
   return { name, group: g, minX, maxX, minZ, maxZ, h: hHigh, floorY: 0, ceilAt, colliders: [], lights: [], entries: {},
-    skylight: { lining, kerb, inside, outside, glass, centre: () => slope.localToWorld(new THREE.Vector3(hxc, hyc, 0)) } };
+    slope, skylight: { lining, kerb, inside, outside, hinge, glass, centre: () => slope.localToWorld(new THREE.Vector3(hxc, hyc, 0)) } };
 }
 
 // ---------- models ----------
@@ -289,143 +293,148 @@ function proxy(parent, geo, x, y, z) {
 }
 
 // ---------- the floor plan ----------
-// The house from above. -z is the front of the roof: toward the leads and the house opposite.
+// The row from above, as Burnett has it: the Select Seminary and the Indian gentleman's house are next door to
+// each other, and their attics sit side by side under one slope of slates. -z is the front of the roof.
 //
-//   Mr. Carrisford's house: a lit window opposite your skylight, a dark one opposite Becky's    z = -5.6
-//   the light-well between the two houses, 1.35 m across
-//   parapet                                                                                       z = -4.0
-//   THE LEADS: a flat walk of lead along the front of the roof. A chimney stack stands on it.    z -4.0 .. -2.0
-//   eaves                                                                                         z = -2.0
-//   YOUR ATTIC  x -1.5..1.5  |  12 cm wall  |  BECKY'S ATTIC  x 1.62..4.22                         z -1.8 .. 1.8
-//   the stairhead, behind both doors                                                              z > 1.8
+//   the square: the street far below, the houses across it                                        z = -26
+//   parapet                                                                                        z = -4.0
+//   THE LEADS: a flat walk of lead behind the parapet, along the foot of the slates                z -4.0 .. -2.0
+//   eaves                                                                                          z = -2.0
+//   RAM DASS'S ATTIC x -4.62..-1.62 | party wall | YOUR ATTIC x -1.5..1.5 | BECKY'S ATTIC x 1.62..4.22  z -1.8 .. 1.8
+//   the stairhead, behind both doors                                                               z > 1.8
 //
-// Your skylight looks straight across the leads at the lit window. The chimney stack stands exactly on the
-// line between Becky's skylight and that window, so nobody in the lit room can see into her attic. That is
-// clue 6, and it is why the stack is where it is: tools/test/shots.js checks both sightlines.
+// From the floor your skylight shows "nothing but an oblong piece of dull gray sky". Standing on the table with
+// your head out of it, as Sara does, the next attic's skylight is "a few yards" along the slates: propped open,
+// his lantern lit. The party wall between the two houses stands up through the roof as a low brick upstand.
+// From the leads you can look over it into his attic, but not cross it. (Ram Dass can: he crosses it at night.)
 const EYE = 1.38, PR = 0.2;   // Sara is eleven. Everything is seen from a child's height.
 const ROOF = { minZ: -1.8, maxZ: 1.8, hLow: 1.4, hHigh: 3.0, roofT: 0.14, eaveZ: -2.0 };
 const SKY = { x: 0, w: 0.8, z0: -1.70, z1: -0.85 };   // the skylight, in each attic's own coordinates
-const WALL = 0.12, BECKY_X = 1.5 + WALL + 1.3;
-const LEADS_Y = 1.15, PARAPET_Z = -4.0, FACADE_Z = -5.6, WELL_Y = -3;
-const PARTY_W = -1.5 - WALL, PARTY_E = BECKY_X + 1.3 + WALL;
-const LIT = { x0: -0.6, x1: 0.6, y0: 1.95, y1: 3.25 };                         // opposite your skylight
-const DARK = { x0: BECKY_X - 0.6, x1: BECKY_X + 0.6, y0: 1.95, y1: 3.25 };     // opposite Becky's
-const STACK = { x0: 1.16, x1: 1.96, z0: -3.54, z1: -3.04, top: 3.4 };
+const WALL = 0.12, BECKY_X = 1.5 + WALL + 1.3, NEXT_X = -(1.5 + WALL + 1.5);
+const LEADS_Y = 1.15, PARAPET_Z = -4.0, STREET_Y = -10, SQUARE_Z = -26;
+const PARTY_W = -1.5 - WALL, PARTY_E = BECKY_X + 1.3 + WALL, ROW_W = NEXT_X - 1.5 - WALL;   // you can walk the leads from PARTY_W to PARTY_E
+const TABLE = { x0: -0.375, x1: 0.375, z0: -1.45, z1: -0.95, h: 0.68 };   // the old table under your skylight
 
 const sara = makeAttic({ name: 'Your attic', minX: -1.5, maxX: 1.5, ...ROOF, position: new THREE.Vector3(0, 0, 0), sky: SKY });
 const becky = makeAttic({ name: 'Becky\'s attic', minX: -1.3, maxX: 1.3, ...ROOF, position: new THREE.Vector3(BECKY_X, 0, 0), sky: SKY });
+const nextDoor = makeAttic({ name: 'Ram Dass\'s attic', minX: -1.5, maxX: 1.5, ...ROOF, position: new THREE.Vector3(NEXT_X, 0, 0), sky: SKY });
 
-// world-space building helpers for everything outside the two attics
+// world-space building helpers for everything outside the attics
 function box(w, h, d, x, y, z, mat, parent = scene) { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; parent.add(b); return b; }
 function plane(w, h, x, y, z, rx, ry, mat, parent = scene) { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); p.position.set(x, y, z); p.rotation.set(rx, ry, 0); p.castShadow = p.receiveShadow = true; parent.add(p); return p; }
+// the roof's own frame at a given x (the same frame makeAttic cuts the skylights in): x across, y up the slope, z into the house
+const RISE = ROOF.hHigh - ROOF.hLow, RL = Math.hypot(ROOF.maxZ - ROOF.minZ, RISE), COS_A = (ROOF.maxZ - ROOF.minZ) / RL, SIN_A = RISE / RL;
+function roofFrame(x) {
+  const f = new THREE.Group(); f.position.set(x, ROOF.hLow, ROOF.minZ);
+  f.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, SIN_A, COS_A), new THREE.Vector3(0, -COS_A, SIN_A)));
+  scene.add(f); return f;
+}
+const yEave = (ROOF.eaveZ - ROOF.minZ + ROOF.roofT * SIN_A) / COS_A, yRidge = (ROOF.maxZ - ROOF.minZ + ROOF.roofT * SIN_A) / COS_A;
 
 // the leads: walkable, so it is a room too. Its floor sits 1.15 m above the attic floors, at the eaves.
+// The lead itself runs the whole row; the part you can walk on stops at the party wall.
 const LCX = (PARTY_W + PARTY_E) / 2, LCZ = (ROOF.eaveZ + PARAPET_Z) / 2, LW = PARTY_E - PARTY_W, LD = ROOF.eaveZ - PARAPET_Z;
+const RW = PARTY_E - ROW_W, RCX = (ROW_W + PARTY_E) / 2;
 const leads = { name: 'The leads', group: new THREE.Group(), minX: -LW / 2, maxX: LW / 2, minZ: -LD / 2, maxZ: LD / 2, floorY: LEADS_Y, colliders: [], lights: [], entries: {} };
 leads.group.position.set(LCX, LEADS_Y, LCZ); scene.add(leads.group);
-plane(LW, LD, LCX, LEADS_Y, LCZ, -Math.PI / 2, 0, new THREE.MeshStandardMaterial({ map: tiled(leadTex, LW, LD, 1.3), roughness: 0.45, metalness: 0.35 })).castShadow = false;
+plane(RW, LD, RCX, LEADS_Y, LCZ, -Math.PI / 2, 0, new THREE.MeshStandardMaterial({ map: tiled(leadTex, RW, LD, 1.3), roughness: 0.45, metalness: 0.35 })).castShadow = false;
 {
   // where the slates finish: a fascia board and an iron gutter along the eaves
-  const rise = ROOF.hHigh - ROOF.hLow, rl = Math.hypot(ROOF.maxZ - ROOF.minZ, rise), cosA = (ROOF.maxZ - ROOF.minZ) / rl, sinA = rise / rl;
-  const eaveY = ROOF.hLow + (ROOF.eaveZ - ROOF.minZ + ROOF.roofT * sinA) / cosA * sinA + ROOF.roofT * cosA;
-  box(LW, eaveY - LEADS_Y + 0.02, 0.04, LCX, (LEADS_Y + eaveY) / 2, ROOF.eaveZ - 0.02, woodMat);
-  box(LW, 0.07, 0.11, LCX, eaveY - 0.03, ROOF.eaveZ - 0.07, iron);
+  const eaveY = ROOF.hLow + yEave * SIN_A + ROOF.roofT * COS_A;
+  box(RW, eaveY - LEADS_Y + 0.02, 0.04, RCX, (LEADS_Y + eaveY) / 2, ROOF.eaveZ - 0.02, woodMat);
+  box(RW, 0.07, 0.11, RCX, eaveY - 0.03, ROOF.eaveZ - 0.07, iron);
 }
-// the parapet along the front, and its far face going down into the light-well
-occluders.push(box(LW, 0.45, 0.25, LCX, LEADS_Y + 0.225, PARAPET_Z - 0.125, brickMat(LW, 0.45)));
-box(LW + 0.04, 0.06, 0.32, LCX, LEADS_Y + 0.48, PARAPET_Z - 0.125, copingMat);
-occluders.push(plane(LW, LEADS_Y - WELL_Y, LCX, (LEADS_Y + WELL_Y) / 2, PARAPET_Z - 0.25, 0, Math.PI, brickMat(LW, LEADS_Y - WELL_Y)));
-plane(LW, PARAPET_Z - 0.25 - FACADE_Z, LCX, WELL_Y, (PARAPET_Z - 0.25 + FACADE_Z) / 2, -Math.PI / 2, 0, new THREE.MeshStandardMaterial({ color: '#141519', roughness: 1 }));
-// the party walls either side, rising above the roofs, so the view along the leads ends in brick
+// the parapet along the front, and the front of the row going down to the street
+occluders.push(box(RW, 0.45, 0.25, RCX, LEADS_Y + 0.225, PARAPET_Z - 0.125, brickMat(RW, 0.45)));
+box(RW + 0.04, 0.06, 0.32, RCX, LEADS_Y + 0.48, PARAPET_Z - 0.125, copingMat);
+occluders.push(plane(RW, LEADS_Y - STREET_Y, RCX, (LEADS_Y + STREET_Y) / 2, PARAPET_Z - 0.25, 0, Math.PI, brickMat(RW, LEADS_Y - STREET_Y)));
+// the houses either end of this pair stand taller, so the view along the roofs ends in brick
 {
-  const z0 = FACADE_Z, z1 = 2.4, y1 = 3.7, len = z1 - z0, hgt = y1 - WELL_Y;
-  occluders.push(plane(len, hgt, PARTY_W, (WELL_Y + y1) / 2, (z0 + z1) / 2, 0, Math.PI / 2, brickMat(len, hgt)));
-  occluders.push(plane(len, hgt, PARTY_E, (WELL_Y + y1) / 2, (z0 + z1) / 2, 0, -Math.PI / 2, brickMat(len, hgt)));
-  box(0.3, 0.06, len, PARTY_W - 0.1, y1 + 0.03, (z0 + z1) / 2, copingMat);
+  const z0 = PARAPET_Z - 0.25, z1 = 2.4, y1 = 3.7, len = z1 - z0, hgt = y1 - STREET_Y;
+  occluders.push(plane(len, hgt, ROW_W, (STREET_Y + y1) / 2, (z0 + z1) / 2, 0, Math.PI / 2, brickMat(len, hgt)));
+  occluders.push(plane(len, hgt, PARTY_E, (STREET_Y + y1) / 2, (z0 + z1) / 2, 0, -Math.PI / 2, brickMat(len, hgt)));
+  box(0.3, 0.06, len, ROW_W - 0.1, y1 + 0.03, (z0 + z1) / 2, copingMat);
   box(0.3, 0.06, len, PARTY_E + 0.1, y1 + 0.03, (z0 + z1) / 2, copingMat);
 }
-// the chimney stack on the leads, standing between Becky's skylight and the lit window
+// the party wall between the Seminary and the Indian gentleman's house, standing up through the roof:
+// a low wall across the leads, then a brick upstand following the slates up to the ridge
 {
-  const sw = STACK.x1 - STACK.x0, sd = STACK.z1 - STACK.z0, sh = STACK.top - LEADS_Y, cx = (STACK.x0 + STACK.x1) / 2, cz = (STACK.z0 + STACK.z1) / 2;
-  occluders.push(box(sw, sh, sd, cx, LEADS_Y + sh / 2, cz, brickMat(sw, sh)));
-  box(sw + 0.08, 0.1, sd + 0.08, cx, STACK.top + 0.05, cz, copingMat);
+  const x = PARTY_W + WALL / 2, up = brickMat(0.24, 0.62);
+  occluders.push(box(0.24, 0.62, LD, x, LEADS_Y + 0.31, LCZ, up));
+  box(0.3, 0.05, LD, x, LEADS_Y + 0.645, LCZ, copingMat);
+  const f = roofFrame(x), len = yRidge - yEave;
+  // only a course or two above the slates: Sara, with her head out of her skylight, sees straight along to his
+  occluders.push(box(0.24, len, 0.1, 0, (yEave + yRidge) / 2, -ROOF.roofT - 0.05, brickMat(0.24, len), f));
+}
+// chimney stacks along the ridge, on the party walls, where the flues of each house run up
+{
   const potMat = new THREE.MeshStandardMaterial({ color: '#6b3a26', roughness: 0.85 });
-  for (const dx of [-0.24, 0, 0.24]) { const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.42, 14), potMat); pot.position.set(cx + dx, STACK.top + 0.31, cz); pot.castShadow = true; scene.add(pot); }
-  leads.colliders.push({ minX: STACK.x0 - LCX, maxX: STACK.x1 - LCX, minZ: STACK.z0 - LCZ, maxZ: STACK.z1 - LCZ });
+  for (const [x, pots] of [[PARTY_W + WALL / 2, 4], [PARTY_E - WALL / 2, 3], [ROW_W + WALL / 2, 3]]) {
+    const w = 0.3 + pots * 0.22, y0 = 2.9, y1 = 4.15, z = 2.12;
+    occluders.push(box(w, y1 - y0, 0.55, x, (y0 + y1) / 2, z, brickMat(w, y1 - y0)));
+    box(w + 0.08, 0.1, 0.63, x, y1 + 0.05, z, copingMat);
+    for (let i = 0; i < pots; i++) { const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.42, 14), potMat); pot.position.set(x + (i - (pots - 1) / 2) * 0.22, y1 + 0.31, z); pot.castShadow = true; scene.add(pot); }
+  }
 }
 
-// ---------- the house opposite ----------
-const FACADE_TOP = 4.7;
+// ---------- the square, below and across ----------
 {
-  const s = new THREE.Shape([new THREE.Vector2(PARTY_W, WELL_Y), new THREE.Vector2(PARTY_E, WELL_Y), new THREE.Vector2(PARTY_E, FACADE_TOP), new THREE.Vector2(PARTY_W, FACADE_TOP)]);
-  for (const w of [LIT, DARK]) s.holes.push(new THREE.Path([new THREE.Vector2(w.x0, w.y0), new THREE.Vector2(w.x0, w.y1), new THREE.Vector2(w.x1, w.y1), new THREE.Vector2(w.x1, w.y0)]));
-  const facade = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshStandardMaterial({ map: perMetre(brickTex, 1.2), roughness: 0.9 }));
-  facade.position.z = FACADE_Z; facade.castShadow = facade.receiveShadow = true; scene.add(facade); occluders.push(facade);
-  box(LW + 0.1, 0.18, 0.22, LCX, FACADE_TOP - 0.09, FACADE_Z + 0.11, copingMat);   // cornice
-  box(LW, 0.08, 0.06, LCX, LIT.y0 - 0.45, FACADE_Z + 0.03, copingMat);              // string course below the windows
-  const potMat = new THREE.MeshStandardMaterial({ color: '#6b3a26', roughness: 0.85 });
-  box(0.9, 0.9, 0.5, 3.4, FACADE_TOP + 0.45, FACADE_Z - 0.6, brickMat(0.9, 0.9));
-  for (const dx of [-0.22, 0.22]) { const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.085, 0.4, 14), potMat); pot.position.set(3.4 + dx, FACADE_TOP + 1.1, FACADE_Z - 0.6); scene.add(pot); }
-}
-// A sash window set into a wall `depth` thick. The glass is real: you see straight through it.
-function sashWindow(win, z, depth, lit) {
-  const w = win.x1 - win.x0, h = win.y1 - win.y0, cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2;
-  const stucco = new THREE.MeshStandardMaterial({ color: '#8b8475', roughness: 0.9, side: THREE.DoubleSide });
-  for (const [pw, ph, x, y, rx, ry] of [[w, depth, cx, win.y0, -Math.PI / 2, 0], [w, depth, cx, win.y1, Math.PI / 2, 0], [depth, h, win.x0, cy, 0, Math.PI / 2], [depth, h, win.x1, cy, 0, -Math.PI / 2]]) {
-    occluders.push(plane(pw, ph, x, y, z - depth / 2, rx, ry, stucco));
+  plane(80, SQUARE_Z - (PARAPET_Z - 0.25), RCX, STREET_Y, (SQUARE_Z + PARAPET_Z - 0.25) / 2, -Math.PI / 2, 0, new THREE.MeshStandardMaterial({ color: '#121318', roughness: 1 })).castShadow = false;
+  // the houses across the square: a long terrace, its windows mostly dark, a few still lit this late
+  const W = 64, top = 6.2, h = top - STREET_Y;
+  const front = plane(W, h, RCX, (top + STREET_Y) / 2, SQUARE_Z, 0, 0, brickMat(W, h)); front.castShadow = false;
+  box(W, 0.3, 0.4, RCX, top + 0.15, SQUARE_Z + 0.2, copingMat).castShadow = false;
+  const slope = plane(W, 4, RCX, top + 1.2, SQUARE_Z - 1.6, -0.62, 0, new THREE.MeshStandardMaterial({ map: tiled(slateTex, W, 4, 1.1), roughness: 0.7 })); slope.castShadow = false;
+  // house by house: three bays each, a pale pilaster between houses, and only a few windows still lit this late
+  const lit = new THREE.MeshBasicMaterial({ color: '#a8743a' }), dim = new THREE.MeshBasicMaterial({ color: '#5e4228' }), dark = new THREE.MeshBasicMaterial({ color: '#0c0e13' });
+  const stucco = new THREE.MeshStandardMaterial({ color: '#4a4842', roughness: 0.95 });
+  for (let hx = RCX - W / 2 + 3.2; hx < RCX + W / 2 - 2; hx += 6.4) {
+    box(0.35, h, 0.12, hx + 3.2, (top + STREET_Y) / 2, SQUARE_Z + 0.06, stucco).castShadow = false;
+    for (const [y, fh] of [[top - 1.4, 1.2], [top - 4.4, 1.9], [top - 7.6, 2.3], [top - 11, 1.9]]) for (const dx of [-1.8, 0, 1.8]) {
+      const r = rand(), p = plane(0.9, fh, hx + dx, y, SQUARE_Z + 0.02, 0, 0, r < 0.06 ? lit : r < 0.12 ? dim : dark); p.castShadow = p.receiveShadow = false;
+    }
   }
-  box(w + 0.18, 0.06, 0.2, cx, win.y0 - 0.03, z + 0.08, copingMat);   // sill
-  const frame = new THREE.MeshStandardMaterial({ color: '#2b2622', roughness: 0.55 }), fz = z - 0.08;
-  box(w, 0.06, 0.06, cx, win.y0 + 0.03, fz, frame); box(w, 0.06, 0.06, cx, win.y1 - 0.03, fz, frame);
-  box(0.06, h, 0.06, win.x0 + 0.03, cy, fz, frame); box(0.06, h, 0.06, win.x1 - 0.03, cy, fz, frame);
-  box(w, 0.05, 0.05, cx, cy, fz, frame);        // meeting rail between the two sashes
-  box(0.025, h, 0.03, cx, cy, fz, frame);       // glazing bar
-  const glass = plane(w, h, cx, cy, fz - 0.01, 0, 0, new THREE.MeshStandardMaterial({ color: lit ? '#ffd9a0' : '#5a6474', transparent: true, opacity: lit ? 0.08 : 0.3, roughness: 0.05, depthWrite: false, side: THREE.DoubleSide }));
-  glass.castShadow = false;
-  return glass;
+  const potMat = new THREE.MeshStandardMaterial({ color: '#3a2a22', roughness: 0.9 });
+  for (let x = RCX - W / 2 + 4; x < RCX + W / 2; x += 7.2) {
+    box(1.4, 1.5, 0.6, x, top + 1.9, SQUARE_Z - 2.6, potMat).castShadow = false;
+  }
 }
-const litGlass = sashWindow(LIT, FACADE_Z, 0.25, true);
-litGlass.userData.litWindow = true;
-sashWindow(DARK, FACADE_Z, 0.25, false);
-occluders.push(plane(DARK.x1 - DARK.x0 - 0.06, DARK.y1 - DARK.y0 - 0.06, (DARK.x0 + DARK.x1) / 2, (DARK.y0 + DARK.y1) / 2, FACADE_Z - 0.2, 0, 0,
-  new THREE.MeshStandardMaterial({ color: '#4a463c', roughness: 1 })));   // a drawn blind: nobody looks out of this one
-// Mr. Carrisford's room behind the lit window: the engine's own makeRoom, turned to face us.
-// It is only ever seen through the glass, so it lights itself: the wallpaper glows, and the two lights in it
-// are short-ranged and set deep in the room. A long-range lamp in here shone straight through the brick and
-// lit the party wall and the cornice outside, because lights without shadows pass through walls.
-const CAR = { w: 3.2, d: 2.8, h: 2.6 };
-const carRoom = makeRoom({ name: 'Mr. Carrisford\'s room', minX: -CAR.w / 2, maxX: CAR.w / 2, minZ: -CAR.d / 2, maxZ: CAR.d / 2, h: CAR.h,
-  wallTex: damask('#4d2f25', 'rgba(220,170,110,0.13)'), ceilColor: '#6b5442',
-  position: new THREE.Vector3(0, LEADS_Y, FACADE_Z - 0.25 - CAR.d / 2), rotY: Math.PI,
-  vent: { x: 0, y: (LIT.y0 + LIT.y1) / 2 - LEADS_Y, w: LIT.x1 - LIT.x0, h: LIT.y1 - LIT.y0 } });
+
+// ---------- the attic next door: Ram Dass's, with everything ready ----------
+// Burnett: "all his packages being in readiness in the attic which was his own". From the leads you can see
+// down through his propped skylight to the far wall: the parcels, a rolled crimson rug stood on end, his lantern.
 const glows = [];
 {
-  const backZ = FACADE_Z - 0.25 - CAR.d, velvet = new THREE.MeshStandardMaterial({ color: '#5a1a1c', roughness: 0.85 });
-  // curtains, drawn back to the sides of the window
-  for (const s of [-1, 1]) box(0.26, 1.42, 0.05, s * 0.66, (LIT.y0 + LIT.y1) / 2 + 0.03, FACADE_Z - 0.3, velvet);
-  // his fire: a chimneypiece and a live grate on the far wall
-  const marble = new THREE.MeshStandardMaterial({ color: '#c9bba3', roughness: 0.4 });
-  box(1.3, 1.1, 0.24, 0.9, LEADS_Y + 0.55, backZ + 0.12, marble);
-  box(1.45, 0.06, 0.32, 0.9, LEADS_Y + 1.13, backZ + 0.16, marble);
-  box(0.62, 0.56, 0.04, 0.9, LEADS_Y + 0.3, backZ + 0.26, new THREE.MeshStandardMaterial({ color: '#3a1606', emissive: '#ff6a1e', emissiveIntensity: 1.4 }));
-  const fire = new THREE.PointLight('#ff8a3c', 5, 2.6, 2); fire.position.set(0.9, LEADS_Y + 0.55, backZ + 0.45); scene.add(fire); glows.push({ L: fire, base: 5, seed: 3 });
-  const lamp = new THREE.PointLight('#ffb468', 3.5, 1.7, 2); lamp.position.set(0.85, LEADS_Y + 1.3, FACADE_Z - 0.9); scene.add(lamp);
-  carRoom.group.traverse(o => { if (o.isMesh && o.material.map) { o.material.emissive = new THREE.Color('#ffb070'); o.material.emissiveMap = o.material.map; o.material.emissiveIntensity = 0.32; } });
-  // stand-ins until carrisford.glb: a wing chair turned to the fire, a lamp on a table, a rug
-  const leather = new THREE.MeshStandardMaterial({ color: '#2f3a2a', roughness: 0.6 });
-  const chair = new THREE.Group(); chair.position.set(-0.15, LEADS_Y, -7.55); chair.rotation.y = -0.85; scene.add(chair);
-  box(0.72, 0.42, 0.68, 0, 0.21, 0, leather, chair); box(0.72, 0.78, 0.14, 0, 0.8, -0.3, leather, chair);
-  for (const s of [-1, 1]) box(0.12, 0.42, 0.5, s * 0.36, 0.62, -0.08, leather, chair);
-  const tableMat = new THREE.MeshStandardMaterial({ color: '#3a2318', roughness: 0.5 });
-  box(0.5, 0.04, 0.5, 0.85, LEADS_Y + 0.72, FACADE_Z - 0.9, tableMat); box(0.06, 0.7, 0.06, 0.85, LEADS_Y + 0.36, FACADE_Z - 0.9, tableMat);
-  const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.17, 0.2, 18, 1, true), new THREE.MeshStandardMaterial({ color: '#e8c98c', emissive: '#ffcf86', emissiveIntensity: 1.2, side: THREE.DoubleSide }));
-  shade.position.set(0.85, LEADS_Y + 1.12, FACADE_Z - 0.9); scene.add(shade);
-  plane(2.2, 1.6, 0.2, LEADS_Y + 0.006, FACADE_Z - 1.8, -Math.PI / 2, 0, new THREE.MeshStandardMaterial({ color: '#6a1f1c', roughness: 0.95 }));
-}
-// the warm light thrown back across the gap onto the leads: only felt when you are out there
-{
-  const spill = new THREE.PointLight('#ffb067', 0.8, 2.4, 2); spill.position.set(0, (LIT.y0 + LIT.y1) / 2, FACADE_Z + 0.35);
-  scene.add(spill); leads.lights.push({ L: spill, base: 0.8 });
+  nextDoor.skylight.hinge.rotation.x = 1.0;   // propped open
+  Object.assign(nextDoor.skylight.glass.material, { color: new THREE.Color('#ffd7a8'), opacity: 0.32, emissive: new THREE.Color('#ffa24c'), emissiveIntensity: 0.55 });
+  const g = nextDoor.group, paper = new THREE.MeshStandardMaterial({ color: '#8a6e4c', roughness: 0.95 }), string = new THREE.MeshStandardMaterial({ color: '#d8cdb4', roughness: 0.9 });
+  const parcel = (w, h, d, x, y, z, ry = 0) => {
+    const p = new THREE.Group(); p.position.set(x, y, z); p.rotation.y = ry; g.add(p);
+    box(w, h, d, 0, h / 2, 0, paper, p); box(w + 0.006, 0.012, 0.012, 0, h + 0.002, 0, string, p); box(0.012, 0.012, d + 0.006, 0, h + 0.002, 0, string, p);
+    box(0.012, h, 0.012, 0, h / 2, d / 2 + 0.002, string, p); box(0.012, h, 0.012, 0, h / 2, -d / 2 - 0.002, string, p);
+    return p;
+  };
+  parcel(0.55, 0.36, 0.42, -1.18, 0, 0.15, 0.08); parcel(0.42, 0.3, 0.36, -1.2, 0.36, 0.17, -0.12);
+  parcel(0.62, 0.26, 0.46, -1.12, 0, -1.05, -0.05); parcel(0.3, 0.22, 0.3, -1.16, 0.26, -1.07, 0.3);
+  parcel(0.5, 0.42, 0.38, -0.55, 0, 0.95, 0.2);
+  // the rug, rolled and stood in the corner: crimson, with the border showing at each end
+  const rug = new THREE.Group(); rug.position.set(-1.25, 0, -0.45); rug.rotation.z = 0.09; g.add(rug);
+  const crimson = new THREE.MeshStandardMaterial({ color: '#8a1c1e', roughness: 0.95 }), gold = new THREE.MeshStandardMaterial({ color: '#c9a04a', roughness: 0.8 }), indigo = new THREE.MeshStandardMaterial({ color: '#2e3560', roughness: 0.9 });
+  const cyl = (r, h, y, mat) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20), mat); c.position.y = y; c.castShadow = c.receiveShadow = true; rug.add(c); };
+  cyl(0.12, 1.2, 0.6, crimson);
+  for (const y of [0.05, 1.15]) { cyl(0.124, 0.05, y, gold); cyl(0.125, 0.025, y + (y < 0.5 ? 0.05 : -0.05), indigo); }
+  nextDoor.rug = rug;
+  // his dark lantern, on the parcels, slide open
+  const tin = new THREE.MeshStandardMaterial({ color: '#4a463e', metalness: 0.6, roughness: 0.45 });
+  const lantern = new THREE.Group(); lantern.position.set(-1.2, 0.66, 0.17); g.add(lantern);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.08, 0.24, 18), tin); body.position.y = 0.12; body.castShadow = true; lantern.add(body);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.08, 18), tin); cap.position.y = 0.28; lantern.add(cap);
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 18), new THREE.MeshBasicMaterial({ color: '#ffd28a' })); lens.position.set(0.078, 0.12, 0); lens.rotation.y = Math.PI / 2; lantern.add(lens);
+  // Its light stays in his attic: short-ranged, set near his far wall, so none of it reaches yours through the brick
+  // (lights here have no shadows and pass through walls). A second one just above his open skylight puts a warm
+  // patch on the slates round it, the only warm light outside.
+  const L = new THREE.PointLight('#ffb468', 4.5, 2.0, 2); L.position.set(NEXT_X - 0.8, 0.9, -0.1); scene.add(L); glows.push({ L, base: 4.5, seed: 1 });
+  const out = new THREE.PointLight('#ffb067', 1.6, 1.45, 2); out.position.copy(nextDoor.skylight.centre()).add(new THREE.Vector3(0, 0.35, -0.1)); scene.add(out); glows.push({ L: out, base: 1.6, seed: 4 });
 }
 
 // ---------- sky, moon and the light they give ----------
@@ -451,20 +460,42 @@ moon.shadow.camera.updateProjectionMatrix(); moon.shadow.bias = -0.0004; moon.sh
 scene.add(moon, moon.target);
 
 // ---------- what is in the attics (stand-ins until attic_cold.glb: same footprints the model prompt asks for) ----------
+// Burnett: "a rusty grate, an old iron bedstead, and a hard bed covered with a faded coverlet ... Under the
+// skylight ... there stood an old battered red footstool." And the old table she climbs on to look out.
 const CANDLE = 0.9;   // a candle-end: a small warm pool, not a lit room
 const ticking = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#8b8f95'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(38,50,78,0.45)'; for (let x = 0; x < w; x += 8) g.fillRect(x, 0, 3, h); });
-function mattress(room, x0, x1, z0, z1) {
-  const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-  const m = new THREE.Mesh(new RoundedBoxGeometry(w, 0.12, d, 3, 0.04), new THREE.MeshStandardMaterial({ map: tiled(ticking, w, 1, 0.3), roughness: 0.95 }));
-  m.position.set(cx, 0.06, cz); m.castShadow = m.receiveShadow = true; room.group.add(m);
-  const blanket = new THREE.Mesh(new RoundedBoxGeometry(w - 0.04, 0.03, d * 0.62, 2, 0.012), new THREE.MeshStandardMaterial({ color: '#5a5048', roughness: 1 }));
-  blanket.position.set(cx, 0.13, z1 - d * 0.31 - 0.03); blanket.castShadow = blanket.receiveShadow = true; room.group.add(blanket);
+const dealMat = new THREE.MeshStandardMaterial({ color: '#6e5a44', roughness: 0.85 });
+// an old iron bedstead, head rail at +z, a thin hard mattress and a faded coverlet on it
+function bedstead(room, x0, x1, z0, z1) {
+  const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, t = 0.03, top = 0.48;
+  const rust = new THREE.MeshStandardMaterial({ color: '#2a2622', metalness: 0.5, roughness: 0.7 }), g = room.group;
+  for (const [z, h] of [[z1 - t / 2, 0.95], [z0 + t / 2, 0.6]]) {
+    for (const x of [x0 + t / 2, x1 - t / 2]) box(t, h, t, x, h / 2, z, rust, g);
+    box(w, t, t, cx, h - t / 2, z, rust, g); box(w, t * 0.7, t * 0.7, cx, 0.34, z, rust, g);
+    for (let x = x0 + 0.15; x < x1 - 0.1; x += 0.15) box(0.014, h - 0.36, 0.014, x, 0.34 + (h - 0.36) / 2, z, rust, g);
+  }
+  for (const x of [x0 + t / 2, x1 - t / 2]) box(t * 0.7, t, d, x, 0.34, cz, rust, g);
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w - 0.04, 0.1, d - 0.06, 3, 0.035), new THREE.MeshStandardMaterial({ map: tiled(ticking, w, 1, 0.3), roughness: 0.95 }));
+  m.position.set(cx, top - 0.05, cz); m.castShadow = m.receiveShadow = true; g.add(m);
+  const cover = new THREE.Mesh(new RoundedBoxGeometry(w + 0.02, 0.025, d * 0.66, 2, 0.01), new THREE.MeshStandardMaterial({ color: '#6e6656', roughness: 1 }));
+  cover.position.set(cx, top + 0.008, z0 + d * 0.33 + 0.02); cover.castShadow = cover.receiveShadow = true; g.add(cover);
+  const pillow = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.07, 0.3, 3, 0.03), new THREE.MeshStandardMaterial({ color: '#a8a49a', roughness: 1 }));
+  pillow.position.set(cx, top + 0.03, z1 - 0.22); pillow.castShadow = pillow.receiveShadow = true; g.add(pillow);
   room.colliders.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1 });
 }
-function stool(room, x, z) {
-  box(0.3, 0.03, 0.3, x, 0.435, z, woodMat, room.group);
-  for (const [dx, dz] of [[-0.1, -0.1], [0.1, -0.1], [0, 0.11]]) box(0.03, 0.42, 0.03, x + dx, 0.21, z + dz, woodMat, room.group);
-  room.colliders.push({ minX: x - 0.15, maxX: x + 0.15, minZ: z - 0.15, maxZ: z + 0.15 });
+function oldTable(room, { x0, x1, z0, z1, h }) {
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, g = new THREE.Group(); room.group.add(g);
+  box(x1 - x0, 0.035, z1 - z0, cx, h - 0.0175, cz, dealMat, g);
+  for (const x of [x0 + 0.05, x1 - 0.05]) for (const z of [z0 + 0.05, z1 - 0.05]) box(0.045, h - 0.035, 0.045, x, (h - 0.035) / 2, z, dealMat, g);
+  room.colliders.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1 });
+  return g;
+}
+function footstool(room, x, z) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.set(0, 0.25, 0.035); room.group.add(g);   // lopsided: one leg short
+  const red = new THREE.Mesh(new RoundedBoxGeometry(0.36, 0.1, 0.26, 2, 0.025), new THREE.MeshStandardMaterial({ color: '#7a2a26', roughness: 0.9 }));
+  red.position.y = 0.15; red.castShadow = red.receiveShadow = true; g.add(red);
+  for (const [dx, dz] of [[-0.15, -0.1], [0.15, -0.1], [-0.15, 0.1], [0.15, 0.1]]) box(0.03, 0.1, 0.03, dx, 0.05, dz, woodMat, g);
+  room.colliders.push({ minX: x - 0.18, maxX: x + 0.18, minZ: z - 0.15, maxZ: z + 0.15 });
 }
 function candleEnd(room, x, y, z) {
   const c = new THREE.Group(); c.position.set(x, y, z); room.group.add(c);
@@ -488,29 +519,43 @@ function coldGrate(room, x) {
   box(0.8, 0.025, 0.3, x, 0.0125, z - 0.41, new THREE.MeshStandardMaterial({ color: '#4a4640', roughness: 0.9 }), room.group);
   room.colliders.push({ minX: x - 0.43, maxX: x + 0.43, minZ: z - 0.56, maxZ: z });
 }
-mattress(sara, -1.5, -0.65, -1.0, 0.9);
-stool(sara, -0.4, 0.2);
-candleEnd(sara, -0.4, 0.45, 0.2);
+bedstead(sara, -1.5, -0.6, -0.95, 0.95);
+const table = oldTable(sara, TABLE);
+footstool(sara, 0.62, -1.0);
+candleEnd(sara, 0.26, TABLE.h, -1.04);
 coldGrate(sara, -0.7);
-mattress(becky, 0.45, 1.3, -1.0, 0.9);
+bedstead(becky, 0.4, 1.3, -0.95, 0.95);
 
 const saraDoor = addDoor(sara, 0.85, ROOF.maxZ - 0.026, Math.PI);
 const beckyDoor = addDoor(becky, -0.65, ROOF.maxZ - 0.026, Math.PI);
 
 const rooms = [sara, becky, leads];
-// where you stand on arriving in each room (room coordinates), and what you face
-sara.entries = { start: { pos: [0.6, 0.55], look: [0, -1.3], pitch: 0.16 }, door: { pos: [0.85, 1.2], look: [0, -0.6] }, skylight: { pos: [0, -1.2], look: [0.3, 1.0] } };
+// where you stand on arriving in each room (room coordinates), and what you face. `eye` raises you (on the table).
+const TABLE_C = [(TABLE.x0 + TABLE.x1) / 2, (TABLE.z0 + TABLE.z1) / 2];
+sara.entries = {
+  start: { pos: [0.6, 0.55], look: [0, -1.3], pitch: 0.16 },
+  door: { pos: [0.85, 1.2], look: [0, -0.6] },
+  table: { pos: TABLE_C, look: [NEXT_X, -1.2], pitch: 0.02, eye: TABLE.h + EYE },   // head and shoulders out of the skylight
+  floor: { pos: [0, -0.62], look: [0, -1.4], pitch: -0.25 },
+};
 becky.entries = { door: { pos: [-0.65, 1.2], look: [0, -0.6] } };
-leads.entries = { skylight: { pos: [-LCX, -2.42 - LCZ], look: [-LCX, FACADE_Z - LCZ], pitch: 0.03 } };
+// out on the leads, you land below your skylight facing along the roof toward the light next door
+leads.entries = { skylight: { pos: [-LCX, -2.42 - LCZ], look: [NEXT_X - LCX, -1.27 - LCZ], pitch: -0.05 } };
+// the slates just below your skylight: what you face when you are up on the table and can climb out
+const below = new THREE.Group(); roofFrame(0).add(below);
+proxy(below, new THREE.BoxGeometry(SKY.w + 0.4, 0.55, 0.05), SKY.x, (SKY.z0 - ROOF.minZ) / COS_A - 0.24, -ROOF.roofT - 0.06);
 examinables.push({ id: 'door_becky', room: 0, roots: [saraDoor] });
 examinables.push({ id: 'door_back', room: 1, roots: [beckyDoor] });
-examinables.push({ id: 'skylight_out', room: 0, roots: [sara.skylight.lining, sara.skylight.inside] });
+examinables.push({ id: 'table', room: 0, roots: [table] });
+examinables.push({ id: 'skylight_out', room: 0, roots: [below], when: () => perched });
 examinables.push({ id: 'skylight_in', room: 2, roots: [sara.skylight.kerb, sara.skylight.outside] });
 scene.updateMatrixWorld(true);
 
+let perched = false;   // standing on the table under the skylight
 const CLUES = {
   door_becky: { verb: 'Go to Becky\'s attic' },
   door_back: { verb: 'Go back to your attic' },
+  table: { get verb() { return perched ? 'Climb down' : 'Climb onto the table'; } },
   skylight_out: { verb: 'Climb out onto the leads' },
   skylight_in: { verb: 'Climb back in' },
 };
@@ -544,6 +589,7 @@ function goTo(i, at) {
     const look = r.group.localToWorld(new THREE.Vector3(e.look[0], 0, e.look[1]));
     player.x = p.x; player.z = p.z;
     player.yaw = Math.atan2(-(look.x - p.x), -(look.z - p.z)); player.pitch = e.pitch ?? -0.1;
+    player.eye = e.eye; perched = !!e.eye;
     setRoomLights(i);
     $('fade').classList.remove('on');
     showWhere(r.name);
@@ -642,7 +688,8 @@ function pickTarget() {
   for (const h of ray.intersectObjects(hitList, false)) {
     if (h.object.material && h.object.material.visible === false && !h.object.userData.proxy) continue;
     const ex = h.object.userData.ex;   // first solid thing decides; walls block what is behind them
-    return ex && (ex.room === undefined || ex.room === player.room) ? ex : null;   // the same skylight means different things from each side
+    if (ex && ex.room !== undefined && ex.room !== player.room) continue;   // the other side of your skylight belongs to the leads: look past it
+    return ex && (!ex.when || ex.when()) ? ex : null;
   }
   return null;
 }
@@ -655,8 +702,9 @@ function examine() {
   const id = target.id;
   if (id === 'door_becky') return goTo(1, 'door');
   if (id === 'door_back') return goTo(0, 'door');
+  if (id === 'table') return goTo(0, perched ? 'floor' : 'table');
   if (id === 'skylight_out') return goTo(2, 'skylight');
-  if (id === 'skylight_in') return goTo(0, 'skylight');
+  if (id === 'skylight_in') return goTo(0, 'table');   // you come back in the way you went out: onto the table
 }
 function openCard() { $('card').hidden = false; cardOpen = true; $('cardClose').focus({ preventScroll: true }); }
 function closeCard() { $('card').hidden = true; cardOpen = false; cvs.focus(); }
@@ -706,38 +754,40 @@ let view = null;   // a camera override for overhead shots
 const hidden = [];
 window.__game = {
   get ready() { return ready; }, get playing() { return playing; }, get room() { return player.room; },
-  get target() { return target ? target.id : null; },
+  get target() { return target ? target.id : null; }, get perched() { return perched; },
   rooms: rooms.map(r => r.name),
   where: () => ({ room: player.room, x: +player.x.toFixed(3), z: +player.z.toFixed(3) }),
   // stand in room i at its own (lx, lz), looking at a world point
   place(i, lx, lz, look) {
     const p = rooms[i].group.localToWorld(new THREE.Vector3(lx, 0, lz));
-    player.room = i; player.x = p.x; player.z = p.z; setRoomLights(i);
+    player.room = i; player.x = p.x; player.z = p.z; player.eye = undefined; perched = false; setRoomLights(i);
     if (look) { const [wx, wy, wz] = look, eyeY = rooms[i].floorY + EYE; player.yaw = Math.atan2(-(wx - p.x), -(wz - p.z)); player.pitch = Math.atan2(wy - eyeY, Math.hypot(wx - p.x, wz - p.z)); }
   },
   // stand where a player arrives in room i, facing what they would face
-  enter(i, at) { const r = rooms[i], e = r.entries[at] || r.entries.door || Object.values(r.entries)[0]; this.place(i, e.pos[0], e.pos[1]); const lk = r.group.localToWorld(new THREE.Vector3(e.look[0], 0, e.look[1])); player.yaw = Math.atan2(-(lk.x - player.x), -(lk.z - player.z)); player.pitch = e.pitch ?? -0.1; },
+  enter(i, at) { const r = rooms[i], e = r.entries[at] || r.entries.door || Object.values(r.entries)[0]; this.place(i, e.pos[0], e.pos[1]); player.eye = e.eye; perched = !!e.eye; const lk = r.group.localToWorld(new THREE.Vector3(e.look[0], 0, e.look[1])); player.yaw = Math.atan2(-(lk.x - player.x), -(lk.z - player.z)); player.pitch = e.pitch ?? -0.1; },
   placeWorld(i, wx, wz, look) { const p = rooms[i].group.worldToLocal(new THREE.Vector3(wx, rooms[i].group.position.y, wz)); this.place(i, p.x, p.z, look); },
-  look(wx, wy, wz) { const eyeY = rooms[player.room].floorY + EYE; player.yaw = Math.atan2(-(wx - player.x), -(wz - player.z)); player.pitch = Math.atan2(wy - eyeY, Math.hypot(wx - player.x, wz - player.z)); },
+  look(wx, wy, wz) { const eyeY = rooms[player.room].floorY + (player.eye ?? EYE); player.yaw = Math.atan2(-(wx - player.x), -(wz - player.z)); player.pitch = Math.atan2(wy - eyeY, Math.hypot(wx - player.x, wz - player.z)); },
   bounds: i => { const r = rooms[i]; return { minX: r.minX, maxX: r.maxX, minZ: r.minZ, maxZ: r.maxZ }; },
   entryXZ: i => { const r = rooms[i], e = Object.values(r.entries)[0]; return e.pos; },
   canStand: (i, lx, lz) => { const was = player.room; player.room = i; const p = rooms[i].group.localToWorld(new THREE.Vector3(lx, 0, lz)); const b = blocked(p.x, p.z); player.room = was; return !b; },
   examine: () => examine(),
-  // how much of the lit window you can see from a standing spot: the share of 16 points on its glass with a clear line
-  windowVisibility(i, lx, lz) {
+  // How much of something you can see from a spot: the share of its sample points with a clear line from your eye.
+  // 'glass' is next door's propped skylight; 'rug' is the rolled rug stood in the corner of his attic.
+  seen(what, i, lx, lz, eye = EYE) {
     const solid = []; scene.traverse(o => { if (o.isMesh && o.visible && o.material && !o.material.transparent && o.material.visible !== false) solid.push(o); });
-    const eye = rooms[i].group.localToWorld(new THREE.Vector3(lx, 0, lz)); eye.y = rooms[i].floorY + EYE;
-    const rc = new THREE.Raycaster(); let clear = 0, n = 0;
-    for (const x of [-0.35, -0.15, 0.15, 0.35]) for (const y of [LIT.y0 + 0.25, 2.35, 2.85, LIT.y1 - 0.25]) {
-      const pt = new THREE.Vector3(x, y, FACADE_Z - 0.09), dir = pt.clone().sub(eye), dist = dir.length();
-      rc.set(eye, dir.normalize()); rc.far = dist - 0.02; n++;
-      if (!rc.intersectObjects(solid, false).length) clear++;
-    }
-    return clear / n;
+    const from = rooms[i].group.localToWorld(new THREE.Vector3(lx, 0, lz)); from.y = rooms[i].floorY + eye;
+    const pts = [];
+    if (what === 'glass') { const gl = nextDoor.skylight.glass, w = gl.geometry.parameters.width, h = gl.geometry.parameters.height; for (const u of [-0.35, -0.12, 0.12, 0.35]) for (const v of [-0.35, -0.12, 0.12, 0.35]) pts.push(gl.localToWorld(new THREE.Vector3(u * w, v * h, 0))); }
+    else for (const y of [0.2, 0.45, 0.7, 0.95]) for (const a of [-0.6, 0, 0.6]) pts.push(nextDoor.rug.localToWorld(new THREE.Vector3(0.13 * Math.cos(a), y, 0.13 * Math.sin(a))));
+    const rc = new THREE.Raycaster(); let clear = 0;
+    for (const pt of pts) { const dir = pt.clone().sub(from), dist = dir.length(); rc.set(from, dir.normalize()); rc.far = dist - 0.03; if (!rc.intersectObjects(solid, false).length) clear++; }
+    return clear / pts.length;
   },
+  tableXZ: () => TABLE_C, tableEye: TABLE.h + EYE,
+  viewFrom(pos, look) { view = { pos, look }; },   // a free camera for checking things from outside the player's reach
   topDown(i) {   // look straight down into a room with its roof lifted off
     const r = rooms[i], c = r.group.localToWorld(new THREE.Vector3((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2));
-    if (r.ceilAt) r.group.traverse(o => { if (o.isMesh && o.parent && o.parent !== r.group && o.visible) { o.visible = false; hidden.push(o); } });
+    if (r.slope) { r.slope.visible = false; hidden.push(r.slope); }
     view = { pos: [c.x, r.floorY + 5.2, c.z + 0.001], look: [c.x, r.floorY, c.z] }; setRoomLights(i);
   },
   clearView() { view = null; for (const o of hidden.splice(0)) o.visible = true; },
@@ -750,8 +800,8 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
 
   if (playing && !cardOpen && !moving) {
-    const f = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0) - joyV.y;
-    const s = (keys['d'] ? 1 : 0) - (keys['a'] ? 1 : 0) + joyV.x;
+    const f = perched ? 0 : (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0) - joyV.y;
+    const s = perched ? 0 : (keys['d'] ? 1 : 0) - (keys['a'] ? 1 : 0) + joyV.x;
     // arrow keys turn your head
     const turn = (keys['arrowleft'] ? 1 : 0) - (keys['arrowright'] ? 1 : 0);
     if (turn) player.yaw += turn * 2.0 * dt;
@@ -780,6 +830,9 @@ function tick() {
 
   for (const r of rooms) for (const l of r.lights) if (l.flicker && l.on) l.L.intensity = l.base * (reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 9 + l.seed) * Math.sin(t * 5.3 + l.seed * 2));
   for (const gl of glows) gl.L.intensity = gl.base * (reduceMotion ? 1 : 0.82 + 0.18 * Math.sin(t * 7 + gl.seed) * Math.sin(t * 3.1 + gl.seed));
+  // your skylight lifts open while you are up on the table or out on the leads
+  const sash = sara.skylight.hinge, want = perched || player.room === 2 ? 2.2 : 0;   // thrown right back, clear of your view along the roof
+  sash.rotation.x += (want - sash.rotation.x) * Math.min(1, dt * (reduceMotion ? 60 : 5));
   for (const fl of flames) { if (!reduceMotion) { fl.scale.y = 2.3 + Math.sin(t * 11 + fl.id) * 0.18; fl.rotation.z = Math.sin(t * 3 + fl.id) * 0.05; } }
 
   renderer.render(scene, camera);

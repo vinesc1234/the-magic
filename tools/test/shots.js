@@ -7,14 +7,15 @@ const fs = require('fs'), path = require('path');
 const VIEWS = [
   // [file, room, x, z (the room's own coordinates), the world point to look at]
   ['01-start', 'start'],
-  ['02-sightline', 0, 0, -0.6, [0, 2.6, -5.6]],          // under the skylight, looking at the lit window
-  ['03-attic-back', 0, 0.3, -0.9, [-0.2, 1.0, 1.8]],      // the door and the cold grate
-  ['04-attic-moon', 0, 1.0, -0.3, [-0.6, 0.2, 0.4]],      // the mattress, the stool, the moonlight on the boards
-  ['05-becky-out', 1, 0, -0.6, [0, 2.6, -5.6]],          // from Becky's attic toward the lit window: the stack is in the way
-  ['06-becky-room', 1, -0.2, -0.4, [3.8, 0.2, 0.0]],   // look points are world coordinates: Becky's room starts at x 1.62
-  ['07-leads-window', 2, 'entry'],
-  ['08-leads-back', 2, 0.6, -3.7, [1.3, 2.3, 0.2]],       // world x,z here: looking back at the roofs and both skylights
-  ['09-leads-moon', 2, -0.6, -2.6, [0.6, 7.5, -12]],
+  ['02-table-west', 0, 'table'],                          // up on the table, head out of the skylight, looking along the slates
+  ['03-attic-back', 0, 0.3, -0.6, [-0.2, 1.0, 1.8]],      // the door and the cold grate
+  ['04-attic-bed', 0, 0.55, 0.9, [-1.0, 0.35, -0.2]],     // the iron bedstead, the moonlight on the boards
+  ['05-floor-up', 0, 0, -0.62, [0, 2.8, -1.3]],           // from the floor the skylight shows only sky
+  ['06-becky-room', 1, -0.2, -0.4, [3.8, 0.2, 0.0]],      // look points are world coordinates: Becky's room starts at x 1.62
+  ['07-leads-arrive', 2, 'skylight'],
+  ['08-leads-into-next', 2, -1.42, -2.22, [-4.3, 0.8, -0.45]],   // world x,z: over the party wall, down into his attic
+  ['09-leads-back', 2, 0.6, -3.7, [-0.8, 2.3, 0.2]],      // looking back at the roofs, both skylights and the stacks
+  ['10-leads-square', 2, 0.4, -3.6, [0.4, 0.5, -26]],     // over the parapet to the square
 ];
 
 (async () => {
@@ -35,32 +36,36 @@ const VIEWS = [
 
   for (const [name, room, x, z, look] of VIEWS) {
     if (room === 'start') { await shot(name); continue; }
-    if (x === 'entry') await page.evaluate(i => window.__game.enter(i, 'skylight'), room);
+    if (typeof x === 'string') await page.evaluate(([i, at]) => window.__game.enter(i, at), [room, x]);
     else if (room === 2) await page.evaluate(([x, z, look]) => window.__game.placeWorld(2, x, z, look), [x, z, look]);
     else await page.evaluate(([i, x, z, look]) => window.__game.place(i, x, z, look), [room, x, z, look]);
     await shot(name);
   }
   for (const [i, name] of [[0, 'top-attic'], [1, 'top-becky'], [2, 'top-leads']]) {
     await page.evaluate(i => window.__game.topDown(i), i);
-    await shot('10-' + name);
+    await shot('11-' + name);
     await page.evaluate(() => window.__game.clearView());
   }
 
-  // The floor plan's two promises. Every spot a player can stand on, 15 cm apart.
+  // What the book promises. From the floor your skylight shows only sky; up on the table you see the next attic's
+  // skylight lit; from the leads you can see down into his attic. Every spot a player can stand on, 15 cm apart.
   const report = await page.evaluate(() => {
-    const g = window.__game, out = {};
-    for (const [i, key] of [[0, 'yourAttic'], [1, 'beckysAttic']]) {
-      const b = g.bounds(i); let spots = 0, seeing = 0, best = 0, sum = 0;
+    const g = window.__game, out = {}, [tx, tz] = g.tableXZ();
+    out.fromTheTable = { glass: g.seen('glass', 0, tx, tz, g.tableEye), rug: g.seen('rug', 0, tx, tz, g.tableEye) };
+    for (const [i, key, what] of [[0, 'fromYourFloor', 'glass'], [2, 'fromTheLeads', 'rug']]) {
+      const b = g.bounds(i); let spots = 0, seeing = 0, best = 0;
       for (let x = b.minX; x <= b.maxX; x += 0.15) for (let z = b.minZ; z <= b.maxZ; z += 0.15) {
         if (!g.canStand(i, x, z)) continue;
-        const v = g.windowVisibility(i, x, z); spots++; sum += v; best = Math.max(best, v); if (v >= 0.5) seeing++;
+        const v = g.seen(what, i, x, z); spots++; best = Math.max(best, v); if (v >= 0.25) seeing++;
       }
-      out[key] = { standingSpots: spots, seeMostOfTheWindow: +(seeing / spots).toFixed(2), averageShareVisible: +(sum / spots).toFixed(2), bestSpot: best };
+      out[key] = { what, standingSpots: spots, spotsSeeingAQuarter: seeing, bestShare: +best.toFixed(2) };
     }
-    out.leadsEntry = g.windowVisibility(2, ...g.entryXZ(2));
     return out;
   });
   console.log(JSON.stringify(report, null, 2));
+  if (report.fromTheTable.glass < 0.5) errors.push("from the table you should see next door's skylight");
+  if (report.fromYourFloor.spotsSeeingAQuarter > 0) errors.push('from the floor your skylight should show only sky');
+  if (report.fromTheLeads.spotsSeeingAQuarter === 0) errors.push('from the leads you should be able to see into his attic');
 
   // Walking between rooms the way a player does: stand, face the thing, press E.
   const via = async (room, x, z, look, expectTarget, expectRoom) => {
@@ -75,16 +80,26 @@ const VIEWS = [
   };
   await via(0, 0.85, 0.9, [0.85, 1.0, 1.8], 'door_becky', 1);
   await via(1, -0.65, 0.9, [2.27, 1.0, 1.8], 'door_back', 0);   // her door is at world x 2.27
-  await via(0, 0, -0.9, [0, 1.6, -1.35], 'skylight_out', 2);
-  // from the leads: arrive where a player climbs out, then turn to the skylight behind you
-  await page.evaluate(() => { window.__game.enter(2, 'skylight'); window.__game.look(0, 1.75, -1.35); });
-  await frames(2);
-  const t = await page.evaluate(() => window.__game.target);
-  if (t !== 'skylight_in') errors.push(`facing the skylight from the leads found ${t}`);
-  else { await page.keyboard.press('e'); await page.waitForTimeout(1300); await frames(2);
-    const r = await page.evaluate(() => window.__game.room); if (r !== 0) errors.push(`skylight_in led to room ${r}`); else console.log('ok skylight_in -> 0'); }
+  // onto the table, out onto the leads, back in (onto the table again), and down
+  const press = async () => { await page.keyboard.press('e'); await page.waitForTimeout(1300); await frames(2); };
+  const facing = () => page.evaluate(() => window.__game.target);
+  const state = () => page.evaluate(() => ({ room: window.__game.room, perched: window.__game.perched }));
+  const step = async (name, setup, want, check) => {
+    await page.evaluate(setup); await frames(2);
+    const t = await facing(); if (t !== want) { errors.push(`${name}: facing ${want}, found ${t}`); return false; }
+    await press(); const st = await state();
+    if (!check(st)) { errors.push(`${name}: ended in ${JSON.stringify(st)}`); return false; }
+    console.log('ok', name, JSON.stringify(st)); return true;
+  };
+  await step('climb onto the table', () => window.__game.place(0, 0, -0.62, [0, 0.68, -1.15]), 'table', st => st.room === 0 && st.perched);
+  await step('climb out', () => window.__game.look(0, 1.25, -2.3), 'skylight_out', st => st.room === 2 && !st.perched);
+  await step('climb back in', () => { window.__game.enter(2, 'skylight'); window.__game.look(0, 1.75, -1.35); }, 'skylight_in', st => st.room === 0 && st.perched);
+  await step('climb down', () => window.__game.look(0.05, 0.68, -1.05), 'table', st => st.room === 0 && !st.perched);
+  // and from the floor the skylight can't be climbed through
+  await page.evaluate(() => window.__game.place(0, 0, -0.62, [0, 2.0, -1.3])); await frames(2);
+  const up = await facing(); if (up === 'skylight_out') errors.push('the skylight can be climbed through from the floor');
 
   await browser.close();
   if (errors.length) { console.error('FAILED\n' + errors.join('\n')); process.exit(1); }
-  console.log('OK: views taken, sightlines measured, every way between rooms works');
+  console.log("OK: views taken, the book's sightlines hold, every way between rooms works");
 })();
