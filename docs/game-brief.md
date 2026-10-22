@@ -41,6 +41,10 @@ Holmes observes; Sara lives in the room. The Speckled Band's loop (walk, point, 
    Accessibility: settings for a larger circle and for holding still automatically.
 3. CARRY THE CANDLE. Sara holds her candle-end, seen in the bottom of the view. It lights only what is near her, so dark corners have to be visited and clues are found by bringing the light to them. It burns down slowly through the evening as a gentle clock (it gutters lower, never a game over). She sets it on the table when she climbs up, and picks it up again.
 4. SMALL THINGS TO DO. Knock on the wall and Becky knocks back ("the prisoner in the next cell"). Leave crumbs by the skirting and Melchisedec comes out. Sit on the red footstool with Emily (the view lowers). The cold is felt: breath fogging in the candlelight, frost creeping in at the edges of the view the longer she is away from a flame, easing near it. In the warm state the frost is gone.
+5. ANSWER MISS MINCHIN, ON A TIMER (user decision, Oct 22). Her footsteps climb the stairs and stop outside the door; the line of candlelight under it waits. She speaks through the door ("Sara. Are you awake?" and worse). A few seconds to choose: answer politely, answer back, or say nothing (the timer running out is silence, and silence is a choice). In the book Sara's polite composure maddens her more than defiance would. Each answer changes what she says and what she takes: the candle-end, the crumbs, Emily for the night. Her face is never shown. Two or three such moments in the evening.
+6. THE KNOCKING CODE, AND THE WRONG WALL (user decision, Oct 22). Book: Sara knocks on the wall "for the prisoner in the next cell" and Becky comes. Early in the evening it is a small rhythm game: knock a pattern on the shared wall, Becky knocks it back, and her answer steadies the blending. Late in the night, when the blending is strong, the answer comes from the other wall, the one with nothing behind it. Teach something safe, then break it.
+7. SPOT WHAT CHANGED (user decision, Oct 22). All night, small things change when the player looks away: Emily's head turned, the footstool moved, one candle-end too many, the bed made when she never made it. Noticing is half the dread, and it trains the eye: in the morning, the warm room's clues are gathered by spotting what is new, and the same habit finds them. Each change noticed in the night goes in My book; none are needed to finish.
+Not chosen (Oct 22): a monkey-chase minigame (the ending still opens with the monkey, as in the book), a "Because of you" page, her father's letters.
 Left out on purpose: calling the sparrows (the book's sparrows come at sunset; this is night).
 Timing liberty: in the book, Ram Dass overheard her on an earlier night and the magic came days later. The game compresses it into one evening, one night and one morning. The README lists this.
 
@@ -104,18 +108,19 @@ becky, candle, grate, attic_cold, attic_warm, next_door, becky_attic, ram_dass, 
 
 BUILD ORDER (one milestone per session; playtest with screenshots after each)
 1. The shell. DONE.
-2. The feel of the cold attic: carry the candle (light in hand, burning down, set down on the table), the cold and the dark, the house's sounds, sitting on the footstool, knocking for Becky, crumbs for Melchisedec (a stand-in until his model). NEXT.
+2. The feel of the cold attic: carry the candle (light in hand, burning down, set down on the table), the cold and the dark, the house's sounds, sitting on the footstool, crumbs for Melchisedec (a stand-in until his model), and the knocking code with Becky (the safe version). NEXT.
 3. Cold clues 1, 2, 3 with glow and cards, found by candlelight, and "My book" with seven empty slots.
-4. Dread and the blending: Miss Minchin's presence (footsteps, voice through the floor, the light under the door), reality slipping and steadying, the cracking look.
-5. Suppose: the imagining spots, Sara's lines, the dreamlike overlays (and the ones that go wrong), remembering what was supposed. The gate to sleep.
-6. Lie still and listen: the night visit.
-7. The turn: morning, and the warm state built from what was supposed. The mood rests on it.
-8. Morning clues 4, 5, 6, and clue 7 from the night.
-9. Becky and Ram Dass: dialogue with silhouette portraits, topics, facts; people alive at a few steps.
-10. The deduction.
-11. The ending.
-12. Intro cutscene, sound polish, phone controls.
-One milestone longer than before; the playing time stays 15 to 25 minutes.
+4. Miss Minchin: footsteps on the stairs, the light under the door, her voice through it, and the timed answers with their consequences.
+5. The blending: reality slipping and steadying, things that change when you look away (and noticing them), the knock from the wrong wall, the cracking look.
+6. Suppose: the imagining spots, Sara's lines, the dreamlike overlays (and the ones that go wrong), remembering what was supposed. The gate to sleep.
+7. Lie still and listen: the timed "Don't move" night visit.
+8. The turn: morning, and the warm state built from what was supposed and what the stirring cost. The mood rests on it.
+9. Morning clues 4, 5, 6 (found by spotting what is new), and clue 7 from the night.
+10. Becky and Ram Dass: dialogue with silhouette portraits, topics, facts; people alive at a few steps.
+11. The deduction.
+12. The ending.
+13. Intro cutscene, sound polish, phone controls, accessibility settings.
+Playing time grows to about 20 to 30 minutes.
 
 TESTING
 - node tools/test/smoke.js <url>: loads, starts, fails on any error.
