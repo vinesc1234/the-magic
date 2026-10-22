@@ -696,7 +696,7 @@ function pickTarget() {
 }
 function setGlow(ex, amount) {
   if (!ex || ex.person) return;   // people get the prompt, not a glow
-  for (const m of ex.meshes) { if (m.userData.proxy || !m.material.emissive) continue; m.material.emissive.set('#f0bf78'); m.material.emissiveIntensity = amount; }
+  for (const m of ex.meshes) { if (m.userData.proxy || !m.material.emissive) continue; m.material.emissive.set('#d9a55e'); m.material.emissiveIntensity = amount; }
 }
 function examine() {
   if (!target || cardOpen || moving) return;
@@ -733,7 +733,7 @@ function noiseBuffer(seconds, brown) {
 let introState = 'loading';
 function setIntroState(state) {
   introState = state;
-  const b = $('begin'); b.disabled = false; b.textContent = 'Go up to the attic'; b.focus({ preventScroll: true });
+  const b = $('begin'); b.disabled = false; b.textContent = 'Climb the stairs'; b.focus({ preventScroll: true });
 }
 
 // ---------- loading ----------
