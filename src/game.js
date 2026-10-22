@@ -254,7 +254,7 @@ function decodeBase64(str) {
   return out.subarray(0, n);
 }
 // The models this game loads. tools/build.py reads this list, so it is the only one to keep up to date.
-const MODELS = ['glb-grate'];
+const MODELS = ['glb-grate', 'glb-becky'];
 // Each model is published as a text file next to the page (base64; artifacts don't serve .glb).
 // Loading them separately keeps the page itself small, so a page update can't catch it half-read.
 let modelsDone = 0, loadFailed = false;
@@ -743,6 +743,8 @@ function placeModels() {
   grate.position.copy(grateAt); grate.rotation.y = Math.PI;   // modelled facing +Z; the attic's grate faces into the room
   grate.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
   sara.group.add(grate);
+  // people: loaded now, placed by the story later (Becky from milestone 8)
+  for (const name of ['becky']) { const m = parts[name]; m.visible = false; m.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; }); scene.add(m); }
 }
 Promise.all(MODELS.map(parseGLB)).then(models => {
   models.forEach((g, i) => { parts[MODELS[i].replace('glb-', '')] = g.scene; });
@@ -796,6 +798,8 @@ window.__game = {
   tableXZ: () => TABLE_C, tableEye: TABLE.h + EYE,
   viewFrom(pos, look) { view = { pos, look }; },   // a free camera for checking things from outside the player's reach
   get scene() { return scene; },
+  // stand a model at a world spot facing a world point, for checking it in place
+  show(name, x, z, faceX, faceZ) { const m = parts[name]; m.visible = true; m.position.set(x, 0, z); m.rotation.y = Math.atan2(faceX - x, faceZ - z); },
   topDown(i) {   // look straight down into a room with its roof lifted off
     const r = rooms[i], c = r.group.localToWorld(new THREE.Vector3((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2));
     if (r.slope) { r.slope.visible = false; hidden.push(r.slope); }
