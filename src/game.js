@@ -254,7 +254,7 @@ function decodeBase64(str) {
   return out.subarray(0, n);
 }
 // The models this game loads. tools/build.py reads this list, so it is the only one to keep up to date.
-const MODELS = [];
+const MODELS = ['glb-grate'];
 // Each model is published as a text file next to the page (base64; artifacts don't serve .glb).
 // Loading them separately keeps the page itself small, so a page update can't catch it half-read.
 let modelsDone = 0, loadFailed = false;
@@ -508,22 +508,23 @@ function candleEnd(room, x, y, z) {
   const L = new THREE.PointLight('#ffb35c', CANDLE, 2.6, 2); L.position.set(x, y + 0.1, z);
   room.group.add(L); room.lights.push({ L, base: CANDLE, flicker: true, seed: rand() * 10 });
 }
-// a small iron grate in the back wall, long cold (clue 5 is found on its hearth once the fire is lit)
-function coldGrate(room, x) {
-  const z = ROOF.maxZ, top = room.ceilAt(z - 0.26) - 0.02;
-  const plaster = new THREE.MeshStandardMaterial({ map: tiled(limewashTex, 0.72, top, 1.4), roughness: 0.95 });
-  occluders.push(box(0.72, top, 0.26, x, top / 2, z - 0.13, plaster, room.group));
-  box(0.46, 0.5, 0.02, x, 0.27, z - 0.265, new THREE.MeshStandardMaterial({ color: '#0d0c0b', roughness: 1 }), room.group);
-  for (const y of [0.12, 0.17, 0.22, 0.27]) box(0.42, 0.012, 0.012, x, y, z - 0.285, iron, room.group);
-  box(0.86, 0.045, 0.12, x, 0.6, z - 0.31, woodMat, room.group);
-  box(0.8, 0.025, 0.3, x, 0.0125, z - 0.41, new THREE.MeshStandardMaterial({ color: '#4a4640', roughness: 0.9 }), room.group);
-  room.colliders.push({ minX: x - 0.43, maxX: x + 0.43, minZ: z - 0.56, maxZ: z });
+// The chimney breast in the back wall, built here with an opening in it. The ironwork is grate.glb, set into
+// the opening once it loads: its fireback reaches 18.5 cm into the breast and its hearth slab 30 cm into the room.
+const BREAST = { w: 0.72, d: 0.26, hw: 0.25, oh: 0.54 };   // width, depth, the opening's half-width and height
+function chimneyBreast(room, x) {
+  const z = ROOF.maxZ, top = room.ceilAt(z - BREAST.d) - 0.02, side = BREAST.w / 2 - BREAST.hw;
+  const plaster = (w, h) => new THREE.MeshStandardMaterial({ map: tiled(limewashTex, w, h, 1.4), roughness: 0.95 });
+  for (const s of [-1, 1]) occluders.push(box(side, top, BREAST.d, x + s * (BREAST.hw + side / 2), top / 2, z - BREAST.d / 2, plaster(side, top), room.group));
+  occluders.push(box(BREAST.hw * 2, top - BREAST.oh, BREAST.d, x, (top + BREAST.oh) / 2, z - BREAST.d / 2, plaster(BREAST.hw * 2, top - BREAST.oh), room.group));
+  box(0.86, 0.045, 0.12, x, 0.79, z - BREAST.d - 0.05, woodMat, room.group);   // the mantel shelf, just above the iron surround
+  room.colliders.push({ minX: x - 0.43, maxX: x + 0.43, minZ: z - BREAST.d - 0.3, maxZ: z });
+  return new THREE.Vector3(x, 0, z - BREAST.d);   // where the grate's wall face goes
 }
 bedstead(sara, -1.5, -0.6, -0.95, 0.95);
 const table = oldTable(sara, TABLE);
 footstool(sara, 0.62, -1.0);
 candleEnd(sara, 0.26, TABLE.h, -1.04);
-coldGrate(sara, -0.7);
+const grateAt = chimneyBreast(sara, -0.7);
 bedstead(becky, 0.4, 1.3, -0.95, 0.95);
 
 const saraDoor = addDoor(sara, 0.85, ROOF.maxZ - 0.026, Math.PI);
@@ -736,7 +737,16 @@ function setIntroState(state) {
 }
 
 // ---------- loading ----------
-Promise.all(MODELS.map(parseGLB)).then(() => {
+// put each model where its stand-in was
+function placeModels() {
+  const grate = parts.grate;
+  grate.position.copy(grateAt); grate.rotation.y = Math.PI;   // modelled facing +Z; the attic's grate faces into the room
+  grate.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+  sara.group.add(grate);
+}
+Promise.all(MODELS.map(parseGLB)).then(models => {
+  models.forEach((g, i) => { parts[MODELS[i].replace('glb-', '')] = g.scene; });
+  placeModels();
   finishExaminables();
   setRoomLights(player.room);
   ready = true;
@@ -785,6 +795,7 @@ window.__game = {
   },
   tableXZ: () => TABLE_C, tableEye: TABLE.h + EYE,
   viewFrom(pos, look) { view = { pos, look }; },   // a free camera for checking things from outside the player's reach
+  get scene() { return scene; },
   topDown(i) {   // look straight down into a room with its roof lifted off
     const r = rooms[i], c = r.group.localToWorld(new THREE.Vector3((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2));
     if (r.slope) { r.slope.visible = false; hidden.push(r.slope); }
