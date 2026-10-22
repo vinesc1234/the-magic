@@ -99,6 +99,28 @@ const VIEWS = [
   await page.evaluate(() => window.__game.place(0, 0, -0.62, [0, 2.0, -1.3])); await frames(2);
   const up = await facing(); if (up === 'skylight_out') errors.push('the skylight can be climbed through from the floor');
 
+  // Every one of Sara's thoughts can be reached from where a player stands, and opens its card. (By now every room
+  // has been visited, so seeing the last one must bring up the end-of-build note: an unfinished game must never
+  // look broken.) [id, room, x, z in that room's own coordinates, the world point to look at]
+  const THOUGHTS = [['bed', 0, -0.2, 0.2, [-1.05, 0.5, 0.0]], ['footstool', 0, 0.6, -0.45, [0.62, 0.15, -1.0]], ['grate', 0, -0.5, 0.7, [-0.7, 0.35, 1.5]],
+    ['candle', 0, 0.3, -0.6, [0.26, 0.72, -1.04]], ['skylight_look', 0, 0, -0.62, [0, 2.0, -1.3]], ['becky_bed', 1, -0.3, 0.0, [3.77, 0.5, 0.0]],
+    ['party_wall', 2, 'w', -1.0, -3.0, [-1.56, 1.6, -3.0]], ['next_door', 2, 'w', -1.42, -2.22, [-3.12, 1.9, -1.35]], ['square', 2, 'w', 0.4, -3.5, [0.4, 1.45, -3.9]]];
+  for (const th of THOUGHTS) {
+    const [id, room] = th, world = th[2] === 'w', [x, z, look] = world ? th.slice(3) : th.slice(2);
+    await page.evaluate(([room, world, x, z, look]) => world ? window.__game.placeWorld(room, x, z, look) : window.__game.place(room, x, z, look), [room, world, x, z, look]);
+    await frames(2);
+    const t = await page.evaluate(() => window.__game.target);
+    if (t !== id) { errors.push(`thought ${id}: facing it found ${t}`); continue; }
+    await page.keyboard.press('e'); await frames(2);
+    const title = await page.evaluate(() => !document.getElementById('card').hidden && document.getElementById('cardTitle').textContent);
+    if (!title) { errors.push(`thought ${id}: no card opened`); continue; }
+    console.log('ok thought', id, '->', title);
+    await page.keyboard.press('e'); await page.waitForTimeout(900); await frames(2);
+  }
+  const end = await page.evaluate(() => !document.getElementById('card').hidden && document.getElementById('cardTitle').textContent);
+  if (end !== 'That is all, for now') errors.push(`after every thought, expected the end-of-build note, found ${end}`);
+  else console.log('ok end-of-build note');
+
   await browser.close();
   if (errors.length) { console.error('FAILED\n' + errors.join('\n')); process.exit(1); }
   console.log("OK: views taken, the book's sightlines hold, every way between rooms works");

@@ -30,6 +30,13 @@ The book is already dark: an eleven-year-old whose father has just died, starved
 - SOUND comes early (milestone 2), because dread is mostly sound: the house settling, wind in the chimney, scratching in the walls, slates ticking as something crosses them, and silence used on purpose.
 - The look stays the storybook (fonts, paper, sparkles); the horror is that the whimsy cracks, then mends.
 
+NEVER STRAND THE PLAYER (user playtest, Oct 22: "after someone explores and there is nothing left to do they're going to think the game is broke")
+- There is always a goal on screen, under the title (#goal): now "Someone has been in my room."; each milestone updates it as the night moves on.
+- Every room has things that answer when looked at: Sara's thoughts (CLUES entries with a title, text and hint). Built so far: the bed, the red footstool, the grate, the candle-end, the skylight from below (which points to the table), Becky's bed, the party wall, the light next door, the square.
+- If the player goes quiet for 35 seconds, Sara remembers something unseen in this room, then a room not yet visited, then a room with something left.
+- While the game is unfinished, seeing everything brings up an honest "That is all, for now" note. Remove it when the ending exists.
+- tools/test/shots.js checks every thought can be reached and opens its card, and that the note appears.
+
 PLAYING AS SARA: WHAT MAKES THIS MORE THAN THE SPECKLED BAND (user decision, Oct 21)
 Holmes observes; Sara lives in the room. The Speckled Band's loop (walk, point, read a card) stays, but the player also does what Sara does in the book.
 1. SUPPOSE: imagine the room, and it comes true. The heart of the game. Ram Dass: "Being sad one night, I lay close to the open skylight and listened. The vision she related told what this miserable room might be if it had comforts in it." In the cold half, at certain spots (the grate, the bare boards, the bed, the table, the bare wall) the player can suppose: Sara's line plays and a faint, dreamlike version of the thing appears there (the attic_warm piece, translucent and shimmering), then fades. Next morning exactly the things she supposed are really there, and the things she didn't suppose aren't. That is why every new piece in attic_warm is its own named object: unsupposed pieces stay hidden. The player must suppose at least three before Sara can sleep.

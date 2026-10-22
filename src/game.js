@@ -345,7 +345,7 @@ plane(RW, LD, RCX, LEADS_Y, LCZ, -Math.PI / 2, 0, new THREE.MeshStandardMaterial
   box(RW, 0.07, 0.11, RCX, eaveY - 0.03, ROOF.eaveZ - 0.07, iron);
 }
 // the parapet along the front, and the front of the row going down to the street
-occluders.push(box(RW, 0.45, 0.25, RCX, LEADS_Y + 0.225, PARAPET_Z - 0.125, brickMat(RW, 0.45)));
+const parapet = box(RW, 0.45, 0.25, RCX, LEADS_Y + 0.225, PARAPET_Z - 0.125, brickMat(RW, 0.45)); occluders.push(parapet);
 box(RW + 0.04, 0.06, 0.32, RCX, LEADS_Y + 0.48, PARAPET_Z - 0.125, copingMat);
 occluders.push(plane(RW, LEADS_Y - STREET_Y, RCX, (LEADS_Y + STREET_Y) / 2, PARAPET_Z - 0.25, 0, Math.PI, brickMat(RW, LEADS_Y - STREET_Y)));
 // the houses either end of this pair stand taller, so the view along the roofs ends in brick
@@ -356,11 +356,12 @@ occluders.push(plane(RW, LEADS_Y - STREET_Y, RCX, (LEADS_Y + STREET_Y) / 2, PARA
   box(0.3, 0.06, len, ROW_W - 0.1, y1 + 0.03, (z0 + z1) / 2, copingMat);
   box(0.3, 0.06, len, PARTY_E + 0.1, y1 + 0.03, (z0 + z1) / 2, copingMat);
 }
+let partyWall;
 // the party wall between the Seminary and the Indian gentleman's house, standing up through the roof:
 // a low wall across the leads, then a brick upstand following the slates up to the ridge
 {
   const x = PARTY_W + WALL / 2, up = brickMat(0.24, 0.62);
-  occluders.push(box(0.24, 0.62, LD, x, LEADS_Y + 0.31, LCZ, up));
+  partyWall = box(0.24, 0.62, LD, x, LEADS_Y + 0.31, LCZ, up); occluders.push(partyWall);
   box(0.3, 0.05, LD, x, LEADS_Y + 0.645, LCZ, copingMat);
   const f = roofFrame(x), len = yRidge - yEave;
   // only a course or two above the slates: Sara, with her head out of her skylight, sees straight along to his
@@ -468,7 +469,7 @@ const dealMat = new THREE.MeshStandardMaterial({ color: '#6e5a44', roughness: 0.
 // an old iron bedstead, head rail at +z, a thin hard mattress and a faded coverlet on it
 function bedstead(room, x0, x1, z0, z1) {
   const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, t = 0.03, top = 0.48;
-  const rust = new THREE.MeshStandardMaterial({ color: '#2a2622', metalness: 0.5, roughness: 0.7 }), g = room.group;
+  const rust = new THREE.MeshStandardMaterial({ color: '#2a2622', metalness: 0.5, roughness: 0.7 }), g = new THREE.Group(); room.group.add(g);
   for (const [z, h] of [[z1 - t / 2, 0.95], [z0 + t / 2, 0.6]]) {
     for (const x of [x0 + t / 2, x1 - t / 2]) box(t, h, t, x, h / 2, z, rust, g);
     box(w, t, t, cx, h - t / 2, z, rust, g); box(w, t * 0.7, t * 0.7, cx, 0.34, z, rust, g);
@@ -482,6 +483,7 @@ function bedstead(room, x0, x1, z0, z1) {
   const pillow = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.07, 0.3, 3, 0.03), new THREE.MeshStandardMaterial({ color: '#a8a49a', roughness: 1 }));
   pillow.position.set(cx, top + 0.03, z1 - 0.22); pillow.castShadow = pillow.receiveShadow = true; g.add(pillow);
   room.colliders.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1 });
+  return g;
 }
 function oldTable(room, { x0, x1, z0, z1, h }) {
   const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, g = new THREE.Group(); room.group.add(g);
@@ -496,6 +498,7 @@ function footstool(room, x, z) {
   red.position.y = 0.15; red.castShadow = red.receiveShadow = true; g.add(red);
   for (const [dx, dz] of [[-0.15, -0.1], [0.15, -0.1], [-0.15, 0.1], [0.15, 0.1]]) box(0.03, 0.1, 0.03, dx, 0.05, dz, woodMat, g);
   room.colliders.push({ minX: x - 0.18, maxX: x + 0.18, minZ: z - 0.15, maxZ: z + 0.15 });
+  return g;
 }
 function candleEnd(room, x, y, z) {
   const c = new THREE.Group(); c.position.set(x, y, z); room.group.add(c);
@@ -507,6 +510,7 @@ function candleEnd(room, x, y, z) {
   flame.scale.set(1, 2.3, 1); flame.position.y = 0.075; flame.name = 'flame'; c.add(flame); flames.push(flame);
   const L = new THREE.PointLight('#ffb35c', CANDLE, 2.6, 2); L.position.set(x, y + 0.1, z);
   room.group.add(L); room.lights.push({ L, base: CANDLE, flicker: true, seed: rand() * 10 });
+  return c;
 }
 // The chimney breast in the back wall, built here with an opening in it. The ironwork is grate.glb, set into
 // the opening once it loads: its fireback reaches 18.5 cm into the breast and its hearth slab 30 cm into the room.
@@ -520,12 +524,12 @@ function chimneyBreast(room, x) {
   room.colliders.push({ minX: x - 0.43, maxX: x + 0.43, minZ: z - BREAST.d - 0.3, maxZ: z });
   return new THREE.Vector3(x, 0, z - BREAST.d);   // where the grate's wall face goes
 }
-bedstead(sara, -1.5, -0.6, -0.95, 0.95);
+const saraBed = bedstead(sara, -1.5, -0.6, -0.95, 0.95);
 const table = oldTable(sara, TABLE);
-footstool(sara, 0.62, -1.0);
-candleEnd(sara, 0.26, TABLE.h, -1.04);
+const stool = footstool(sara, 0.62, -1.0);
+const candle = candleEnd(sara, 0.26, TABLE.h, -1.04);
 const grateAt = chimneyBreast(sara, -0.7);
-bedstead(becky, 0.4, 1.3, -0.95, 0.95);
+const beckyBed = bedstead(becky, 0.4, 1.3, -0.95, 0.95);
 
 const saraDoor = addDoor(sara, 0.85, ROOF.maxZ - 0.026, Math.PI);
 const beckyDoor = addDoor(becky, -0.65, ROOF.maxZ - 0.026, Math.PI);
@@ -550,6 +554,15 @@ examinables.push({ id: 'door_back', room: 1, roots: [beckyDoor] });
 examinables.push({ id: 'table', room: 0, roots: [table] });
 examinables.push({ id: 'skylight_out', room: 0, roots: [below], when: () => perched });
 examinables.push({ id: 'skylight_in', room: 2, roots: [sara.skylight.kerb, sara.skylight.outside] });
+// Sara's thoughts (the grate's is added once its model loads)
+examinables.push({ id: 'bed', room: 0, roots: [saraBed] });
+examinables.push({ id: 'footstool', room: 0, roots: [stool] });
+examinables.push({ id: 'candle', room: 0, roots: [candle] });
+examinables.push({ id: 'skylight_look', room: 0, roots: [sara.skylight.inside, sara.skylight.lining], when: () => !perched });
+examinables.push({ id: 'becky_bed', room: 1, roots: [beckyBed] });
+examinables.push({ id: 'party_wall', room: 2, roots: [partyWall] });
+examinables.push({ id: 'next_door', room: 2, roots: [nextDoor.skylight.hinge, nextDoor.skylight.kerb, nextDoor.skylight.outside] });
+examinables.push({ id: 'square', room: 2, roots: [parapet] });
 scene.updateMatrixWorld(true);
 
 let perched = false;   // standing on the table under the skylight
@@ -559,7 +572,20 @@ const CLUES = {
   table: { get verb() { return perched ? 'Climb down' : 'Climb onto the table'; } },
   skylight_out: { verb: 'Climb out onto the leads' },
   skylight_in: { verb: 'Climb back in' },
+  // what Sara thinks, looking at things. `hint` is what she remembers she hasn't looked at, if the player goes quiet.
+  bed: { room: 0, verb: 'Look at the bed', title: 'My bed', text: 'Hard as a board, and the coverlet so thin the cold comes straight through it. I used to sleep under curtains with gold tassels. I don\'t suppose about that any more. Not often.', hint: 'My bed, against the wall.' },
+  footstool: { room: 0, verb: 'Look at the footstool', title: 'The red footstool', text: 'Too shabby for downstairs, so it was sent up here, like me. One leg is short, and it rocks when I sit on it. It is the only red thing in the whole attic.', hint: 'The old red footstool, under the skylight.' },
+  grate: { room: 0, verb: 'Look at the grate', title: 'The grate', text: 'Rusted, and cold for so long it must have forgotten what a fire is. Suppose there were one. Coals glowing, a kettle singing on the hob. Suppose\u2026', hint: 'The grate in the back wall. So cold.' },
+  candle: { room: 0, verb: 'Look at the candle-end', title: 'My candle-end', text: 'Barely an inch left. When it is gone, the dark comes right up to the bed. Miss Minchin counts the candle-ends.', hint: 'My candle-end, on the table.' },
+  skylight_look: { room: 0, verb: 'Look up at the skylight', title: 'The skylight', text: 'From down here it shows nothing but a square of sky. If I stand on the table, I can put my head and shoulders right out into the night.', hint: 'The skylight. I could look up.' },
+  becky_bed: { room: 1, verb: 'Look at Becky\'s bed', title: 'Becky\'s bed', text: 'Empty. Becky is still down in the scullery, though it is nearly midnight. When she does come up, she falls asleep the moment she lies down, boots and all.', hint: 'Becky\'s bed, under the slope.' },
+  party_wall: { room: 2, verb: 'Look at the wall', title: 'The party wall', text: 'On the other side is the Indian gentleman\'s house. His servant came across these slates once, quick as anything, to fetch his monkey back out of my room. I spoke to him in Hindustani, and he smiled.', hint: 'The low wall at the edge of the roof. Next door is beyond it.' },
+  next_door: { room: 2, verb: 'Look into the attic next door', title: 'The light next door', text: 'The servant\'s attic. His skylight is propped open, even in this cold, and a lantern is burning. Parcels in brown paper, tied with string. Something long and red, rolled up in the corner.', hint: 'There is a light next door.' },
+  square: { room: 2, verb: 'Look over the parapet', title: 'The square', text: 'Nearly every window dark. Down there, people are asleep in warm beds after their suppers. Nobody looks up at the roofs.', hint: 'The parapet. The whole square is down there.' },
 };
+const THOUGHTS = Object.keys(CLUES).filter(id => CLUES[id].title);
+const seen = new Set(), visited = new Set([0]);
+let quietSince = 0, endShown = false;
 
 // ---------- player ----------
 const start = sara.entries.start;
@@ -591,14 +617,14 @@ function goTo(i, at) {
     player.x = p.x; player.z = p.z;
     player.yaw = Math.atan2(-(look.x - p.x), -(look.z - p.z)); player.pitch = e.pitch ?? -0.1;
     player.eye = e.eye; perched = !!e.eye;
-    setRoomLights(i);
+    setRoomLights(i); visited.add(i); quietSince = t;
     $('fade').classList.remove('on');
     showWhere(r.name);
     setTimeout(() => { moving = false; }, 300);
   }, 480);
 }
 let whereTimer;
-function showWhere(text) { const w = $('where'); w.textContent = text; w.classList.add('on'); clearTimeout(whereTimer); whereTimer = setTimeout(() => w.classList.remove('on'), 2200); }
+function showWhere(text, ms = 2200) { const w = $('where'); w.textContent = text; w.classList.add('on'); clearTimeout(whereTimer); whereTimer = setTimeout(() => w.classList.remove('on'), ms); }
 
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
@@ -689,8 +715,10 @@ function pickTarget() {
   for (const h of ray.intersectObjects(hitList, false)) {
     if (h.object.material && h.object.material.visible === false && !h.object.userData.proxy) continue;
     const ex = h.object.userData.ex;   // first solid thing decides; walls block what is behind them
-    if (ex && ex.room !== undefined && ex.room !== player.room) continue;   // the other side of your skylight belongs to the leads: look past it
-    return ex && (!ex.when || ex.when()) ? ex : null;
+    // look past things that aren't for here and now: the leads side of your skylight from inside, the view up
+    // through it while you're standing in it
+    if (ex && ((ex.room !== undefined && ex.room !== player.room) || (ex.when && !ex.when()))) continue;
+    return ex || null;
   }
   return null;
 }
@@ -706,9 +734,28 @@ function examine() {
   if (id === 'table') return goTo(0, perched ? 'floor' : 'table');
   if (id === 'skylight_out') return goTo(2, 'skylight');
   if (id === 'skylight_in') return goTo(0, 'table');   // you come back in the way you went out: onto the table
+  const c = CLUES[id];
+  if (c.title) { seen.add(id); quietSince = t; showCard(c.title, c.text, ''); }
 }
+function showCard(title, text, tag) { $('cardTitle').textContent = title; $('cardText').textContent = text; $('cardTag').textContent = tag; openCard(); }
 function openCard() { $('card').hidden = false; cardOpen = true; $('cardClose').focus({ preventScroll: true }); }
-function closeCard() { $('card').hidden = true; cardOpen = false; cvs.focus(); }
+function closeCard() {
+  $('card').hidden = true; cardOpen = false; cvs.focus(); quietSince = t;
+  // An unfinished game must never look broken: once everything there is has been seen, say so plainly.
+  if (!endShown && THOUGHTS.every(id => seen.has(id)) && visited.size === rooms.length) {
+    endShown = true;
+    setTimeout(() => showCard('That is all, for now', 'You have seen everything this early version of The Magic has: the attics, the roof and the light next door are built, and the story comes next. Soon: your candle in your hand, Becky knocking back through the wall, the clues, Miss Minchin on the stairs, and the night.', 'Work in progress'), 600);
+  }
+}
+// If the player goes quiet, Sara remembers something she hasn't looked at yet, or a room she hasn't been in.
+function nudge() {
+  const here = THOUGHTS.find(id => !seen.has(id) && CLUES[id].room === player.room);
+  if (here) return showWhere(CLUES[here].hint, 4200);
+  if (!visited.has(1)) return showWhere('Becky\'s room is through the door.', 4200);
+  if (!visited.has(2)) return showWhere('From the table, I could climb out onto the roof.', 4200);
+  const there = THOUGHTS.find(id => !seen.has(id));
+  if (there) showWhere(CLUES[there].room === 0 ? 'There is more to see in my own room.' : CLUES[there].room === 1 ? 'I haven\'t looked properly in Becky\'s room.' : 'I haven\'t looked properly on the roof.', 4200);
+}
 $('cardClose').addEventListener('click', closeCard);
 $('prompt').addEventListener('click', () => examine());
 
@@ -743,6 +790,7 @@ function placeModels() {
   grate.position.copy(grateAt); grate.rotation.y = Math.PI;   // modelled facing +Z; the attic's grate faces into the room
   grate.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
   sara.group.add(grate);
+  examinables.push({ id: 'grate', room: 0, roots: [grate] });
   // people: loaded now, placed by the story later (Becky from milestone 8)
   for (const name of ['becky']) { const m = parts[name]; m.visible = false; m.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; }); scene.add(m); }
   // Becky's coal-dust smear sits under one eye and reads as a black eye, even made faint. Nobody hits Becky in the
@@ -838,6 +886,7 @@ function tick() {
     camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
   }
 
+  if (playing && !cardOpen && !moving && t - quietSince > 35) { quietSince = t; nudge(); }
   const nt = playing ? pickTarget() : null;
   if (nt !== target) { setGlow(target, 0); target = nt; }
   if (target) setGlow(target, 0.06 + (reduceMotion ? 0 : Math.sin(t * 4) * 0.03));

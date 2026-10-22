@@ -31,6 +31,7 @@ Use this for every new game in this project. It is the process and lessons from 
 - **Every key clue:** visible from standing height, lit, contrasting, with an empty slot in the notebook saying which room it's in.
 - **Thin or small clues get a larger invisible hit box** so the dot can't slip between bars.
 - **Start brighter than feels right:** exposure about 1.4, ambient about 1.2, a soft ceiling fill in every room. Dark scenes (night, cutscenes) switch the fill off and add one deliberate light on what the player must see.
+- **Never strand the player.** Always show the current goal; give every room things that answer when looked at; nudge the player toward something unseen when they go quiet; and while a build is unfinished, say so plainly when they reach the end. Players who run out of things to do assume the game is broken, not unfinished. (The Magic's first playable build had only doors to click, and it read as broken.)
 - **People don't glow** when targeted. They get a prompt instead.
 - **Controls:** click to capture the mouse, ignore the first 2 moves and any jump over 150 px, arrow keys turn, drag works as a fallback, joystick on phones.
 - **Overlays need `position: fixed`** and a z-index. Hide the HUD during cutscenes.
