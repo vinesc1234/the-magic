@@ -9,8 +9,8 @@ Tech: Three.js 0.160, the Speckled Band engine (src/game.js, src/page.html, tool
 - The model list lives in one place: `const MODELS = [...]` in src/game.js. tools/build.py reads it.
 - Repo: the-magic (local: C:\Users\vines\Projects\the-magic). Netlify builds from it once linked; no zips.
 
-STATUS: Milestone 1 (the shell) DONE, rebuilt to follow the book's geography (see "Changed from the plan"). No models yet: furniture is code-built stand-ins on the footprints the Design prompts ask for. Design prompts written for all seven models.
-Next step: Milestone 2, the feel of the cold attic: carry the candle, the cold and the dark, the house's sounds, and the small things to do (see "Tone" and "Playing as Sara"). No Design work needed for it.
+STATUS: Milestone 1 (the shell) DONE. Milestone 3 (the cold clues and My book) DONE ahead of milestone 2, after the user's playtest (Oct 22): with nothing to find, the game read as broken. Built: an opening card saying what to do and how; the goal line with a count ("Signs found: 0 of 3"); clues 1, 2 and 3 in the world with cards; My book (button and Tab) with found signs, empty slots saying where the rest are, and things noticed; nine of Sara's thoughts; nudges that steer to unfound signs first; a payoff card after the third sign, then the "That is all, for now" work-in-progress note. Models in: grate.glb, becky.glb (hidden until milestone 10).
+Next step: Milestone 2, the feel of the cold attic: carry the candle, the cold and the dark, the house's sounds, the footstool, crumbs for Melchisedec, the knocking code. No Design work needed for it.
 
 THE STORY THE PLAYER IS REACHING (all from the novel)
 Ram Dass, the Indian gentleman's servant, lives in the attic next door. Sara met him once, when his monkey ran across the slates into her attic and she spoke to him in Hindustani. He watches her from his skylight and has told his sick master about her. Together with the master's young secretary he looked over her attic while she was out, and on the night of the spoiled feast he crept in with a dark lantern while she slept, the secretary handing things through the skylight. Sara can work out who, how and why. She cannot work out that Mr. Carrisford is searching for her: that is the ending's job.
@@ -91,9 +91,9 @@ Cold is the default: hemisphere light low and blue, no ceiling fill, one candle-
 CLUE TABLE (seven key clues: three in the cold evening, one in the night, three in the morning; every one gets an empty notebook slot naming where it is)
 | # | Clue | Where | State | Exactly where, and how it stands out |
 |---|---|---|---|---|
-| 1 | The skylight catch | Your attic | before | On the inside of the skylight's lower edge, centre, about (0, 1.47, -1.68). Rusted everywhere except one bright scraped arc: it has been worked from outside. Built in code, raised 3 cm, bright metal on the dark frame, with a small cold light on it. Seen from the floor, examined from the table |
-| 2 | Prints on the leads | The leads | before | On the lead below your skylight, x -1.4..0, z -2.1..-2.6, coming from the party wall. Two sets in the damp: a man's boots, and narrow soft prints with no heel ("I can move as if my feet were of velvet"). Pale on dark lead, in moonlight |
-| 3 | The light next door | From the table, and the leads | before | His skylight propped open and lit; from the leads by the party wall, the parcels in string and the rolled crimson rug. Examinable from both places |
+| 1 | The skylight catch | Your attic | before | BUILT. On the inside of the skylight's lower edge, centre, about (0, 1.40, -1.70): a rusty plate and stay, a bright scraped arc, a small cold light. Rusted everywhere except one bright scraped arc: it has been worked from outside. Built in code, raised 3 cm, bright metal on the dark frame, with a small cold light on it. Seen from the floor, examined from the table |
+| 2 | Prints on the leads | The leads | before | BUILT. On the lead below your skylight, x -1.45..0.05, z -2.1..-2.6, coming from the party wall. Two sets in the damp: a man's boots, and narrow soft prints with no heel ("I can move as if my feet were of velvet"). Pale on dark lead, in moonlight |
+| 3 | The light next door | The leads | before | BUILT. His skylight propped open and lit; from the leads by the party wall, the parcels in string and the rolled crimson rug. Examinable from the leads (the table is 3.1 m away, beyond reach; from there it is only seen) |
 | 4 | It is what I supposed | Your attic | after | Everything she imagined aloud is here, and nothing she didn't. The rug (thick crimson, a border from India, x -0.55..0.65, z 0.3..1.2) is the same one that stood rolled in his attic |
 | 5 | Lamp oil on the table | Your attic | after | Two or three drops of oil and a pale ring on the old table under the skylight, where a lantern was stood. This house has nothing but candle-ends. Raised 1 cm, with a proxy hit box |
 | 6 | Becky's room is untouched | Becky's attic | after | The same cold, the same bare bedstead. Whoever came, came for you |
@@ -118,8 +118,8 @@ becky, candle, grate, attic_cold, attic_warm, next_door, becky_attic, ram_dass, 
 
 BUILD ORDER (one milestone per session; playtest with screenshots after each)
 1. The shell. DONE.
-2. The feel of the cold attic: carry the candle (light in hand, burning down, set down on the table), the cold and the dark, the house's sounds, sitting on the footstool, crumbs for Melchisedec (a stand-in until his model), and the knocking code with Becky (the safe version). NEXT.
-3. Cold clues 1, 2, 3 with glow and cards, found by candlelight, "My book" with seven empty slots, and her father's letters in their hiding places.
+2. NEXT. The feel of the cold attic: carry the candle (light in hand, burning down, set down on the table), the cold and the dark, the house's sounds, sitting on the footstool, crumbs for Melchisedec (a stand-in until his model), and the knocking code with Becky (the safe version).
+3. Cold clues 1, 2, 3 with glow and cards, and "My book". DONE (Oct 22, before milestone 2). Still to add here when the candle exists: finding them by candlelight, and her father's letters in their hiding places.
 4. Miss Minchin: footsteps on the stairs, the light under the door, her voice through it, and the timed answers with their consequences.
 5. The blending: reality slipping and steadying, things that change when you look away (and noticing them), the knock from the wrong wall, the cracking look.
 6. Suppose: the imagining spots, Sara's lines, the dreamlike overlays (and the ones that go wrong), remembering what was supposed. The gate to sleep.

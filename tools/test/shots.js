@@ -16,6 +16,8 @@ const VIEWS = [
   ['08-leads-into-next', 2, -1.42, -2.22, [-4.3, 0.8, -0.45]],   // world x,z: over the party wall, down into his attic
   ['09-leads-back', 2, 0.6, -3.7, [-0.8, 2.3, 0.2]],      // looking back at the roofs, both skylights and the stacks
   ['10-leads-square', 2, 0.4, -3.6, [0.4, 0.5, -26]],     // over the parapet to the square
+  ['05b-catch', 0, 0, -0.62, [0, 1.40, -1.70]],             // clue 1 from the floor: the scraped catch must catch the eye
+  ['07b-prints', 2, -0.3, -2.9, [-0.7, 1.15, -2.35]],       // clue 2: the footprints on the lead, by moonlight
 ];
 
 (async () => {
@@ -30,6 +32,9 @@ const VIEWS = [
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForFunction(() => window.__game && window.__game.ready, null, { timeout: 120000 });
   await page.click('#begin');
+  // the opening card says what the player is here to do; close it as a player would
+  await page.waitForTimeout(300);
+  if (!(await page.evaluate(() => document.getElementById('card').hidden))) await page.keyboard.press('e');
   await page.evaluate(() => document.exitPointerLock && document.exitPointerLock());
   const frames = n => page.evaluate(n => new Promise(r => { let k = 0; const f = () => (++k >= n ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
   const shot = async name => { await frames(3); await page.screenshot({ path: path.join(out, name + '.png'), timeout: 120000 }); console.log('shot', name); };
@@ -102,9 +107,11 @@ const VIEWS = [
   // Every one of Sara's thoughts can be reached from where a player stands, and opens its card. (By now every room
   // has been visited, so seeing the last one must bring up the end-of-build note: an unfinished game must never
   // look broken.) [id, room, x, z in that room's own coordinates, the world point to look at]
+  // (the three signs are in this list too; the last of them must be the last entry, so its payoff cards follow)
   const THOUGHTS = [['bed', 0, -0.2, 0.2, [-1.05, 0.5, 0.0]], ['footstool', 0, 0.6, -0.45, [0.62, 0.15, -1.0]], ['grate', 0, -0.5, 0.7, [-0.7, 0.35, 1.5]],
-    ['candle', 0, 0.3, -0.6, [0.26, 0.72, -1.04]], ['skylight_look', 0, 0, -0.62, [0, 2.0, -1.3]], ['becky_bed', 1, -0.3, 0.0, [3.77, 0.5, 0.0]],
-    ['party_wall', 2, 'w', -1.0, -3.0, [-1.56, 1.6, -3.0]], ['next_door', 2, 'w', -1.42, -2.22, [-3.12, 1.9, -1.35]], ['square', 2, 'w', 0.4, -3.5, [0.4, 1.45, -3.9]]];
+    ['candle', 0, 0.3, -0.6, [0.26, 0.72, -1.04]], ['skylight_look', 0, 0, -0.62, [0, 2.0, -1.3]], ['catch', 0, 0, -0.62, [0, 1.40, -1.70]],
+    ['becky_bed', 1, -0.3, 0.0, [3.77, 0.5, 0.0]], ['party_wall', 2, 'w', -1.0, -3.0, [-1.56, 1.6, -3.0]], ['square', 2, 'w', 0.4, -3.5, [0.4, 1.45, -3.9]],
+    ['prints', 2, 'w', -0.3, -2.9, [-0.7, 1.15, -2.35]], ['next_door', 2, 'w', -1.42, -2.22, [-3.12, 1.9, -1.35]]];
   for (const th of THOUGHTS) {
     const [id, room] = th, world = th[2] === 'w', [x, z, look] = world ? th.slice(3) : th.slice(2);
     await page.evaluate(([room, world, x, z, look]) => world ? window.__game.placeWorld(room, x, z, look) : window.__game.place(room, x, z, look), [room, world, x, z, look]);
@@ -117,9 +124,14 @@ const VIEWS = [
     console.log('ok thought', id, '->', title);
     await page.keyboard.press('e'); await page.waitForTimeout(900); await frames(2);
   }
-  const end = await page.evaluate(() => !document.getElementById('card').hidden && document.getElementById('cardTitle').textContent);
-  if (end !== 'That is all, for now') errors.push(`after every thought, expected the end-of-build note, found ${end}`);
-  else console.log('ok end-of-build note');
+  const cardTitle = () => page.evaluate(() => !document.getElementById('card').hidden && document.getElementById('cardTitle').textContent);
+  const found = await page.evaluate(() => window.__game.found.length);
+  if (found !== 3) errors.push(`expected 3 signs found, found ${found}`);
+  const payoff = await cardTitle();
+  if (payoff !== 'Someone comes across the roof') errors.push(`after the third sign, expected the payoff card, found ${payoff}`);
+  else { console.log('ok payoff card'); await page.keyboard.press('e'); await page.waitForTimeout(900); await frames(2);
+    const end = await cardTitle();
+    if (end !== 'That is all, for now') errors.push(`after the payoff, expected the end-of-build note, found ${end}`); else console.log('ok end-of-build note'); }
 
   await browser.close();
   if (errors.length) { console.error('FAILED\n' + errors.join('\n')); process.exit(1); }

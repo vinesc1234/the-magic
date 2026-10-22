@@ -549,6 +549,61 @@ leads.entries = { skylight: { pos: [-LCX, -2.42 - LCZ], look: [NEXT_X - LCX, -1.
 // the slates just below your skylight: what you face when you are up on the table and can climb out
 const below = new THREE.Group(); roofFrame(0).add(below);
 proxy(below, new THREE.BoxGeometry(SKY.w + 0.4, 0.55, 0.05), SKY.x, (SKY.z0 - ROOF.minZ) / COS_A - 0.24, -ROOF.roofT - 0.06);
+// ---------- tonight's three signs ----------
+// Clue 1: the skylight catch, on the inside of the opening's lower edge. Rusty iron, except one bright scraped arc
+// where it has been worked open from outside. Raised 3 cm off the lining, and given its own small cold light.
+const catchGroup = new THREE.Group(); sara.slope.add(catchGroup);
+{
+  const rustIron = new THREE.MeshStandardMaterial({ color: '#4a2e1e', metalness: 0.4, roughness: 0.8 });
+  catchGroup.position.set(SKY.x, (SKY.z0 - ROOF.minZ) / COS_A - 0.025, 0.045);
+  box(0.07, 0.035, 0.012, 0, 0, 0, rustIron, catchGroup);              // the plate
+  box(0.16, 0.014, 0.014, 0.05, 0.012, 0.014, rustIron, catchGroup);   // the stay
+  const arc = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0045, 8, 24, Math.PI),
+    new THREE.MeshStandardMaterial({ color: '#e6dccb', metalness: 0.9, roughness: 0.22, emissive: '#5a5040', emissiveIntensity: 0.4 }));
+  arc.position.set(-0.01, 0.005, 0.022); catchGroup.add(arc);
+  proxy(catchGroup, new THREE.BoxGeometry(0.26, 0.11, 0.08), 0.02, 0, 0.02);
+  const glint = new THREE.PointLight('#cfd8ff', 0.1, 0.3, 2); glint.position.set(0, -0.02, 0.07); catchGroup.add(glint);
+  sara.lights.push({ L: glint, base: 0.1 });
+}
+// Clue 2: footprints on the leads, from the party wall to just below your skylight: a man's boots, and a narrower,
+// softer print with no heel. Pale on the dark, damp lead, where the moonlight falls.
+const printsGroup = new THREE.Group(); scene.add(printsGroup);
+{
+  const W = 1.5, D = 0.5, tex = canvasTex(1024, 342, (g, w) => {
+    const px = w / W;   // pixels per metre; canvas x is world x, canvas y runs toward the eaves
+    // a sole, toe toward -y: boots print the forepart and a separate heel (the arch doesn't touch); a soft cloth
+    // shoe prints one continuous shape
+    const sole = (L, wd, heel) => {
+      g.beginPath();
+      g.moveTo(0, -L / 2);
+      g.quadraticCurveTo(wd * 0.55, -L / 2, wd * 0.5, -L * 0.2);
+      g.quadraticCurveTo(wd * 0.45, heel ? 0.02 * L : 0.05 * L, wd * 0.3, heel ? 0.1 * L : 0.14 * L);
+      if (heel) { g.lineTo(-wd * 0.32, 0.08 * L); }
+      else { g.quadraticCurveTo(wd * 0.36, L * 0.48, 0, L / 2); g.quadraticCurveTo(-wd * 0.36, L * 0.48, -wd * 0.3, 0.14 * L); }
+      g.quadraticCurveTo(-wd * 0.52, -0.1 * L, -wd * 0.45, -0.3 * L);
+      g.quadraticCurveTo(-wd * 0.4, -L / 2, 0, -L / 2);
+      g.fill();
+      if (heel) { g.beginPath(); g.moveTo(-wd * 0.36, 0.26 * L); g.lineTo(wd * 0.36, 0.26 * L); g.quadraticCurveTo(wd * 0.4, L / 2, 0, L / 2); g.quadraticCurveTo(-wd * 0.4, L / 2, -wd * 0.36, 0.26 * L); g.fill(); }
+    };
+    const step = (x, y, L, wd, heel, left, alpha) => {
+      g.save(); g.translate(x * px, y * px); g.rotate(Math.PI / 2 + (left ? -0.06 : 0.06)); if (left) g.scale(-1, 1);
+      g.fillStyle = `rgba(196,190,180,${alpha})`; sole(L * px, wd * px, heel); g.restore();
+    };
+    g.filter = 'blur(1.2px)';
+    for (let i = 0; i < 6; i++) step(0.12 + i * 0.25, 0.18 + (i % 2 ? 0.07 : 0), 0.28, 0.1, true, i % 2 === 0, 0.34 - (i === 5 ? 0.12 : 0));   // boots, toward the skylight
+    for (let i = 0; i < 8; i++) step(0.06 + i * 0.18, 0.36 + (i % 2 ? 0.05 : 0), 0.24, 0.085, false, i % 2 === 0, 0.24);                        // soft, no heel
+    g.filter = 'none';
+    // break the marks up: damp lead takes a print unevenly
+    g.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(0,0,0,${0.3 + rand() * 0.6})`; g.fillRect(rand() * w, rand() * 342, 1 + rand() * 3, 1 + rand() * 3); }
+    g.globalCompositeOperation = 'source-over';
+  });
+  const m = plane(W, D, -0.7, LEADS_Y + 0.003, -2.35, -Math.PI / 2, 0, new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.9 }), printsGroup);
+  m.castShadow = false;
+  proxy(printsGroup, new THREE.BoxGeometry(W, 0.06, D), -0.7, LEADS_Y + 0.03, -2.35);
+}
+examinables.push({ id: 'catch', room: 0, roots: [catchGroup] });
+examinables.push({ id: 'prints', room: 2, roots: [printsGroup] });
 examinables.push({ id: 'door_becky', room: 0, roots: [saraDoor] });
 examinables.push({ id: 'door_back', room: 1, roots: [beckyDoor] });
 examinables.push({ id: 'table', room: 0, roots: [table] });
@@ -580,12 +635,41 @@ const CLUES = {
   skylight_look: { room: 0, verb: 'Look up at the skylight', title: 'The skylight', text: 'From down here it shows nothing but a square of sky. If I stand on the table, I can put my head and shoulders right out into the night.', hint: 'The skylight. I could look up.' },
   becky_bed: { room: 1, verb: 'Look at Becky\'s bed', title: 'Becky\'s bed', text: 'Empty. Becky is still down in the scullery, though it is nearly midnight. When she does come up, she falls asleep the moment she lies down, boots and all.', hint: 'Becky\'s bed, under the slope.' },
   party_wall: { room: 2, verb: 'Look at the wall', title: 'The party wall', text: 'On the other side is the Indian gentleman\'s house. His servant came across these slates once, quick as anything, to fetch his monkey back out of my room. I spoke to him in Hindustani, and he smiled.', hint: 'The low wall at the edge of the roof. Next door is beyond it.' },
-  next_door: { room: 2, verb: 'Look into the attic next door', title: 'The light next door', text: 'The servant\'s attic. His skylight is propped open, even in this cold, and a lantern is burning. Parcels in brown paper, tied with string. Something long and red, rolled up in the corner.', hint: 'There is a light next door.' },
+  next_door: { room: 2, key: true, verb: 'Look into the attic next door', title: 'The light next door', text: 'The Indian gentleman\'s servant sleeps in that attic. His skylight is propped open in all this cold, and his lantern is lit, at midnight. Parcels in brown paper and string, as if for a journey. And a rug, crimson, rolled up and stood in the corner.', hint: 'There is a light next door.', note: 'His lantern lit at midnight. Parcels made ready. A crimson rug, rolled.' },
+  catch: { room: 0, key: true, verb: 'Look at the catch', title: 'The skylight catch', text: 'Rusted solid, like everything up here. Except one place: a bright scraped arc, fresh as a new penny, where it has been worked open. And the scratches are on the outer edge. Someone has opened this from the roof.', hint: 'The skylight catch. Something about it\u2026', note: 'Scraped bright, from outside. Someone opens it from the roof.' },
+  prints: { room: 2, key: true, verb: 'Look at the marks', title: 'Marks on the leads', text: 'Two kinds of footprint in the damp, coming from the party wall to just below my skylight. A man\'s boots, heavy at the heel. And beside them something narrower and softer, with no heel at all, as if whoever it was walked on cloth.', hint: 'The leads under my skylight. Are those marks?', note: 'Two people: a man in boots, and someone soft-footed. From next door\'s side.' },
   square: { room: 2, verb: 'Look over the parapet', title: 'The square', text: 'Nearly every window dark. Down there, people are asleep in warm beds after their suppers. Nobody looks up at the roofs.', hint: 'The parapet. The whole square is down there.' },
 };
 const THOUGHTS = Object.keys(CLUES).filter(id => CLUES[id].title);
-const seen = new Set(), visited = new Set([0]);
-let quietSince = 0, endShown = false;
+const KEY = ['catch', 'prints', 'next_door'];   // tonight's signs, in the order My book lists them
+const WHERE = { catch: 'in my attic', prints: 'on the leads', next_door: 'on the leads' };
+const seen = new Set(), visited = new Set([0]), found = new Set();
+const afterCard = [];   // cards waiting to follow the one that is open
+let quietSince = 0;
+
+// ---------- My book ----------
+function renderBook() {
+  const list = $('nbList'); list.textContent = ''; $('nbEmpty').hidden = true;
+  const li = (cls, title, text) => {
+    const e = document.createElement('li'); if (cls) e.className = cls;
+    if (title) { const b = document.createElement('b'); b.textContent = title; e.appendChild(b); }
+    if (text) e.appendChild(document.createTextNode(text));
+    list.appendChild(e);
+  };
+  li('nbhead', null, 'Signs that someone has been here');
+  for (const id of KEY) found.has(id) ? li('', CLUES[id].title, CLUES[id].note) : li('missing', null, 'Not yet found · ' + WHERE[id]);
+  li('nbhead', null, 'Still to come');
+  li('note', null, 'More in the night, and in the morning.');
+  const noticed = THOUGHTS.filter(id => seen.has(id) && !KEY.includes(id));
+  if (noticed.length) { li('nbhead', null, 'Things I noticed'); for (const id of noticed) li('note', null, CLUES[id].title); }
+}
+function setGoal() {
+  $('goal').textContent = found.size < KEY.length ? `Someone has been in my room. Signs found: ${found.size} of ${KEY.length}.` : 'Someone comes across the roof. But who? And why?';
+}
+function toggleBook(open = $('notebook').hidden) {
+  if (open) renderBook();
+  $('notebook').hidden = !open; $('nbtn').setAttribute('aria-expanded', String(open));
+}
 
 // ---------- player ----------
 const start = sara.entries.start;
@@ -631,6 +715,8 @@ addEventListener('keydown', e => {
   if (cardOpen && (k === 'e' || k === 'escape' || k === 'enter' || k === ' ')) { e.preventDefault(); closeCard(); return; }
   keys[k] = true;
   if (k === 'e' && playing) examine();
+  if (k === 'tab' && playing) { e.preventDefault(); toggleBook(); }
+  if (k === 'escape' && !$('notebook').hidden) toggleBook(false);
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -691,9 +777,11 @@ $('begin').addEventListener('click', () => {
   audioOn();
   $('intro').hidden = true; playing = true; cvs.focus();
   if (isTouch) joy.hidden = false;
-  showWhere(rooms[player.room].name);
-  lockMouse();
+  $('nbtn').hidden = false; setGoal();
+  // say what the player is here to do, and how, before anything else
+  showCard('Someone has been in my room', 'I am sure of it. Something is different up here tonight, and it isn\'t only the cold. If I look closely at anything that seems out of place, I\'ll find it. Whatever I find, I\'ll write in my book.', isTouch ? 'Tap the prompt to look closer · My book is at the top' : 'E to look closer · Tab for my book');
 });
+$('nbtn').addEventListener('click', () => toggleBook());
 
 // ---------- examining ----------
 const ray = new THREE.Raycaster(); ray.far = 2.7;
@@ -735,20 +823,28 @@ function examine() {
   if (id === 'skylight_out') return goTo(2, 'skylight');
   if (id === 'skylight_in') return goTo(0, 'table');   // you come back in the way you went out: onto the table
   const c = CLUES[id];
-  if (c.title) { seen.add(id); quietSince = t; showCard(c.title, c.text, ''); }
+  if (!c.title) return;
+  seen.add(id); quietSince = t;
+  if (!c.key) return showCard(c.title, c.text, '');
+  const isNew = !found.has(id); found.add(id); setGoal(); if (!$('notebook').hidden) renderBook();
+  showCard(c.title, c.text, `Written in my book · ${found.size} of ${KEY.length}`);
+  if (isNew && found.size === KEY.length) {
+    afterCard.push(() => showCard('Someone comes across the roof', 'The catch, worked from outside. Footprints from next door\'s side of the wall, right to my skylight. A lantern burning there at midnight, and parcels made ready. Someone has been crossing the slates to my room. I don\'t know who, or why. Tonight I mean to stay awake and see.', 'Written in my book'));
+    // An unfinished game must never look broken: say plainly that this is as far as it goes.
+    afterCard.push(() => showCard('That is all, for now', 'You have found every sign in this early version of The Magic. The night comes next: your candle in your hand, Becky knocking back through the wall, Miss Minchin on the stairs, and someone at the skylight while you pretend to sleep.', 'Work in progress'));
+  }
 }
 function showCard(title, text, tag) { $('cardTitle').textContent = title; $('cardText').textContent = text; $('cardTag').textContent = tag; openCard(); }
 function openCard() { $('card').hidden = false; cardOpen = true; $('cardClose').focus({ preventScroll: true }); }
 function closeCard() {
   $('card').hidden = true; cardOpen = false; cvs.focus(); quietSince = t;
-  // An unfinished game must never look broken: once everything there is has been seen, say so plainly.
-  if (!endShown && THOUGHTS.every(id => seen.has(id)) && visited.size === rooms.length) {
-    endShown = true;
-    setTimeout(() => showCard('That is all, for now', 'You have seen everything this early version of The Magic has: the attics, the roof and the light next door are built, and the story comes next. Soon: your candle in your hand, Becky knocking back through the wall, the clues, Miss Minchin on the stairs, and the night.', 'Work in progress'), 600);
-  }
+  if (afterCard.length) { const next = afterCard.shift(); setTimeout(next, 500); }
 }
 // If the player goes quiet, Sara remembers something she hasn't looked at yet, or a room she hasn't been in.
 function nudge() {
+  const sign = KEY.find(id => !found.has(id) && CLUES[id].room === player.room);
+  if (sign) return showWhere(CLUES[sign].hint, 4200);
+  if (KEY.some(id => !found.has(id) && CLUES[id].room === 2) && player.room !== 2) return showWhere(perched ? 'I could climb right out onto the roof.' : player.room === 1 ? 'The skylight in my room. The roof\u2026' : 'If I stood on the table, I could get out onto the roof.', 4200);
   const here = THOUGHTS.find(id => !seen.has(id) && CLUES[id].room === player.room);
   if (here) return showWhere(CLUES[here].hint, 4200);
   if (!visited.has(1)) return showWhere('Becky\'s room is through the door.', 4200);
@@ -817,7 +913,7 @@ let view = null;   // a camera override for overhead shots
 const hidden = [];
 window.__game = {
   get ready() { return ready; }, get playing() { return playing; }, get room() { return player.room; },
-  get target() { return target ? target.id : null; }, get perched() { return perched; },
+  get target() { return target ? target.id : null; }, get perched() { return perched; }, get found() { return [...found]; },
   rooms: rooms.map(r => r.name),
   where: () => ({ room: player.room, x: +player.x.toFixed(3), z: +player.z.toFixed(3) }),
   // stand in room i at its own (lx, lz), looking at a world point
