@@ -84,7 +84,7 @@ CHARACTERS
 - Melchisedec: the attic rat. Comes out for crumbs.
 
 MODELS (prompts: docs/design-prompts.md; none received yet)
-becky, attic_cold, attic_warm, ram_dass, monkey, carrisford, melchisedec (no longer optional: the crumbs need him). Ask for each back with a screenshot. Check each in game before building on it: size, origin, part names, and how it reads from 1.38 m.
+becky, candle, grate, attic_cold, attic_warm, next_door, becky_attic, ram_dass, monkey, carrisford, melchisedec (eleven; Melchisedec is needed for the crumbs). Order and reasons at the top of docs/design-prompts.md. Ask for each back with a screenshot. Check each in game before building on it: size, origin, part names, and how it reads from 1.38 m.
 
 BUILD ORDER (one milestone per session; playtest with screenshots after each)
 1. The shell. DONE.

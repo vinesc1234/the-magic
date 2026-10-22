@@ -44,7 +44,7 @@ everything within 1 cm, and the colliders needed no changes.
 **The skylight is not a model.** The plan listed `skylight.glb`, but the skylight is cut through the
 code-built roof, and its catch (a key clue) will be built in code too, raised 3 cm and bright. The
 Speckled Band's modelled ventilator read as a blank frame from across the room, while the code-built
-one was found. So there are seven models, not eight.
+one was found.
 
 ---
 
