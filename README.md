@@ -3,9 +3,14 @@
 A first-person game for the browser, adapted from Frances Hodgson Burnett's novel
 *A Little Princess* (1905, public domain).
 
-You are Sara Crewe, eleven years old, cold and hungry in the attic of Miss Minchin's Select Seminary.
-Someone has been coming into the attic at night. Search your attic, Becky's, and the leads outside your
-skylight, then work out who has been coming in, how, and why. Plays on desktop and phone, no install.
+A dark fairy tale. You are Sara Crewe, eleven years old, grieving, starving and alone in the attic of
+Miss Minchin's Select Seminary. Someone has been coming into the attic at night, and the longer the
+night goes on, the less sure you are of what is real. Search your attic, Becky's, and the roof outside
+your skylight, then work out who has been coming in, how, and why. Plays on desktop and phone, no install.
+
+Liberties with the novel: the night is played as a frightened child would feel it, and the book's
+weeks are compressed into one evening, one night and one morning. What happens, and how it ends, is
+Burnett's.
 
 Built with Claude (game code) and Claude Design (the 3D models, from written prompts), using
 Three.js 0.160 and the engine from *The Speckled Band*. Everything in it comes from the novel: the
