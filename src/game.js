@@ -745,6 +745,9 @@ function placeModels() {
   sara.group.add(grate);
   // people: loaded now, placed by the story later (Becky from milestone 8)
   for (const name of ['becky']) { const m = parts[name]; m.visible = false; m.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; }); scene.add(m); }
+  // Becky's coal-dust smear sits under one eye and reads as a black eye, even made faint. Nobody hits Becky in the
+  // book, so it is hidden: her cap, apron and stoop already say scullery maid.
+  parts.becky.traverse(o => { if (o.isMesh && o.material.name === 'soot') o.visible = false; });
 }
 Promise.all(MODELS.map(parseGLB)).then(models => {
   models.forEach((g, i) => { parts[MODELS[i].replace('glb-', '')] = g.scene; });
