@@ -100,6 +100,13 @@ const VIEWS = [
   await step('climb out', () => window.__game.look(0, 1.25, -2.3), 'skylight_out', st => st.room === 2 && !st.perched);
   await step('climb back in', () => { window.__game.enter(2, 'skylight'); window.__game.look(0, 1.75, -1.35); }, 'skylight_in', st => st.room === 0 && st.perched);
   await step('climb down', () => window.__game.look(0.05, 0.68, -1.05), 'table', st => st.room === 0 && !st.perched);
+  // and the easy ways down: a move key, or E with nothing in view
+  for (const [how, act] of [['a move key', async () => { await page.keyboard.down('s'); await page.waitForTimeout(400); await page.keyboard.up('s'); }], ['E at nothing', async () => { await page.keyboard.press('e'); }]]) {
+    await page.evaluate(() => window.__game.place(0, 0, -0.62, [0, 0.68, -1.15])); await frames(2); await page.keyboard.press('e'); await page.waitForTimeout(1300); await frames(2);
+    await page.evaluate(() => window.__game.look(0, 6, -1.2)); await frames(2);   // look up at the sky: nothing to examine
+    await act(); await page.waitForTimeout(1300); await frames(2);
+    const st = await state(); if (st.perched) errors.push(`climbing down with ${how} didn't work`); else console.log('ok climb down with', how);
+  }
   // and from the floor the skylight can't be climbed through
   await page.evaluate(() => window.__game.place(0, 0, -0.62, [0, 2.0, -1.3])); await frames(2);
   const up = await facing(); if (up === 'skylight_out') errors.push('the skylight can be climbed through from the floor');

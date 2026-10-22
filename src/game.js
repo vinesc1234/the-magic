@@ -620,7 +620,7 @@ examinables.push({ id: 'next_door', room: 2, roots: [nextDoor.skylight.hinge, ne
 examinables.push({ id: 'square', room: 2, roots: [parapet] });
 scene.updateMatrixWorld(true);
 
-let perched = false;   // standing on the table under the skylight
+let perched = false, stepArmed = false;   // standing on the table under the skylight; ready to step down
 const CLUES = {
   door_becky: { verb: 'Go to Becky\'s attic' },
   door_back: { verb: 'Go back to your attic' },
@@ -700,10 +700,10 @@ function goTo(i, at) {
     const look = r.group.localToWorld(new THREE.Vector3(e.look[0], 0, e.look[1]));
     player.x = p.x; player.z = p.z;
     player.yaw = Math.atan2(-(look.x - p.x), -(look.z - p.z)); player.pitch = e.pitch ?? -0.1;
-    player.eye = e.eye; perched = !!e.eye;
+    player.eye = e.eye; perched = !!e.eye; stepArmed = false;
     setRoomLights(i); visited.add(i); quietSince = t;
     $('fade').classList.remove('on');
-    showWhere(r.name);
+    showWhere(e.eye ? (isTouch ? 'Move the stick, or tap, to climb down' : 'Any move key, or E, to climb down') : r.name, e.eye ? 3500 : 2200);
     setTimeout(() => { moving = false; }, 300);
   }, 480);
 }
@@ -815,7 +815,8 @@ function setGlow(ex, amount) {
   for (const m of ex.meshes) { if (m.userData.proxy || !m.material.emissive) continue; m.material.emissive.set('#d9a55e'); m.material.emissiveIntensity = amount; }
 }
 function examine() {
-  if (!target || cardOpen || moving) return;
+  if (cardOpen || moving) return;
+  if (!target) { if (perched) goTo(0, 'floor'); return; }   // on the table, E with nothing in view climbs down
   const id = target.id;
   if (id === 'door_becky') return goTo(1, 'door');
   if (id === 'door_back') return goTo(0, 'door');
@@ -962,8 +963,11 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
 
   if (playing && !cardOpen && !moving) {
-    const f = perched ? 0 : (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0) - joyV.y;
-    const s = perched ? 0 : (keys['d'] ? 1 : 0) - (keys['a'] ? 1 : 0) + joyV.x;
+    const fi = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0) - joyV.y;
+    const si = (keys['d'] ? 1 : 0) - (keys['a'] ? 1 : 0) + joyV.x;
+    // on the table, any step is a step down; but only a fresh one, so a key still held from the roof doesn't drop you
+    if (perched) { const mv = Math.hypot(fi, si); if (mv < 0.1) stepArmed = true; else if (mv > 0.3 && stepArmed) goTo(0, 'floor'); }
+    const f = perched ? 0 : fi, s = perched ? 0 : si;
     // arrow keys turn your head
     const turn = (keys['arrowleft'] ? 1 : 0) - (keys['arrowright'] ? 1 : 0);
     if (turn) player.yaw += turn * 2.0 * dt;
@@ -989,6 +993,7 @@ function tick() {
   $('reticle').classList.toggle('on', !!target);
   const p = $('prompt');
   if (target && !cardOpen && !moving) { p.hidden = false; p.textContent = (isTouch ? 'Tap: ' : 'E: ') + CLUES[target.id].verb; }
+  else if (perched && !cardOpen && !moving) { p.hidden = false; p.textContent = (isTouch ? 'Tap: ' : 'E: ') + 'Climb down'; }
   else p.hidden = true;
 
   for (const r of rooms) for (const l of r.lights) if (l.flicker && l.on) l.L.intensity = l.base * (reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 9 + l.seed) * Math.sin(t * 5.3 + l.seed * 2));
