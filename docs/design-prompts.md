@@ -2,8 +2,9 @@
 
 One model per prompt. Paste a prompt into Claude Design as it is, export the GLB, and send it back
 **with a screenshot**. Make them in this order: Becky first (people are the riskiest part, so find out
-early whether the faces work), then the two attic sets, then Ram Dass, the monkey, Mr. Carrisford, and
-Melchisedec last (he comes out for crumbs, so he is needed).
+early whether the faces work), then the candle (milestone 2 needs it), the grate and the cold attic, then
+the warm attic, the things next door (attach the warm attic's screenshot so the rug, chair and table
+match), Becky's attic, Ram Dass, the monkey, Mr. Carrisford, and Melchisedec last (he comes out for crumbs, so he is needed).
 
 Everything described here is from Burnett's 1905 novel (Project Gutenberg #146). Where a prompt quotes
 the book, the quote is there so Design gets the period details right, not to be copied into the game.
@@ -11,11 +12,11 @@ the book, the quote is there so Design gets the period details right, not to be 
 ## Shared style block (paste into every prompt where it says [shared style block])
 
 ```
-STYLE: stylized realism, like a high-quality animated film: real-world
-proportions and believable detail, but slightly simplified and smoothed.
-Not a photo, not a cartoon, not chunky or toy-like. Smooth shading, no
-outlines, soft worn edges. Period-accurate for a London town house,
-about 1890.
+STYLE: stylized realism with a storybook warmth, like a high-quality
+animated film: real-world proportions and believable detail, gently
+softened and rounded, as if lovingly hand-made. Not a photo, not a
+cartoon, not chunky or toy-like. Smooth shading, no outlines, soft worn
+edges. Period-accurate for a London town house, about 1890.
 ```
 
 ## What the code builds, so the models must not
@@ -199,8 +200,8 @@ NEW PIECES (each its own named object):
 - lamp: on the side table, a small brass oil lamp, 40 cm tall, with a
   rosy pink glass shade. The shade is its own object named lamp_shade so
   the game can make it glow.
-- kettle: a little brass kettle, 18 cm across, its base at X -52, Y 30,
-  Z 147 (it sits on a hob beside the fire, built in code).
+- kettle: a little brass kettle, 18 cm across, its base at X -55, Y 30,
+  Z 147 (it sits on the grate's hob, a separate model).
 
 COLORS (one named material each):
 - iron_black: #22201E, ticking_grey: #8B8F95, deal_wood: #8A7258,
@@ -365,6 +366,222 @@ EXPORT: GLB, every part and material named as above
 ```
 
 ---
+
+## 8. The candle in Sara's hand (candle.glb)
+
+Milestone 2 has Sara carry her candle-end; it sits at the bottom of the view the whole game, so it is
+seen closer than anything else.
+
+```
+Make a 3D model of a small prop for a browser game, seen very close up.
+
+WHAT: a poor child's candle-end in an old tin chamberstick, the kind
+carried up to an attic at night, about 1890. A shallow round tin saucer
+with a raised rim, dented and worn bright at the edge, a short socket in
+the middle, and a ring handle on the side for one finger. In the socket,
+a stub of cheap tallow candle, only 4 cm left, with wax run down one
+side in soft drips onto the saucer, and a short black wick.
+STYLE: stylized realism with a storybook warmth, like a high-quality
+animated film: real-world proportions and believable detail, gently
+softened and rounded, as if lovingly hand-made. Not a photo, not a
+cartoon, not chunky or toy-like. Smooth shading, no outlines, soft worn
+edges. Period-accurate for a London town house, about 1890.
+SIZE: saucer 11 cm across, 1.5 cm deep; candle stub 2 cm across, 4 cm
+tall; ring handle 3 cm across. Real scale.
+ORIENTATION: Y is up, the handle points toward +X, origin at the centre
+of the underside of the saucer.
+
+SEPARATE NAMED PARTS (each its own object, keep these exact names):
+- saucer: the tin saucer, rim and socket
+- handle: the ring handle
+- candle: the tallow stub and its drips, origin at the base of the stub
+  so the game can shorten it as it burns
+- wick: the black wick, origin at its base
+- hand: a girl's right hand, eleven years old, holding the chamberstick
+  with one finger through the ring and the thumb resting on top of it,
+  with the frayed cuff of a black sleeve that is too short for her. A
+  separate object the game can hide.
+
+COLORS (one named material each):
+- tin: #8E8C86, tin_worn: #BDB9AE, tallow: #EDE2C8, wick_black: #1A1614,
+  skin: #EED3C2, sleeve_black: #221E26
+
+DETAIL BUDGET: up to 8,000 triangles. Spend them on the drips, the rim
+and the fingers.
+DO NOT INCLUDE: the flame (the game makes it), ground, background, text,
+lights, camera
+EXPORT: GLB, every part and material named as above
+```
+
+## 9. The grate (grate.glb)
+
+The chimney breast it sits in is built in code; this is the ironwork. Cold now, lit in the morning, so the
+coals and the ash are their own objects.
+
+```
+Make a 3D model of a small fireplace grate for a browser game.
+
+WHAT: the "rusty grate" in a servant's attic in "A Little Princess"
+(Burnett, 1905): a small cheap cast-iron register grate, about 1890,
+set into a plastered chimney breast. Long unused: rust bloom on the
+iron, a few cold black coals in the basket, grey ash beneath.
+STYLE: stylized realism with a storybook warmth, like a high-quality
+animated film: real-world proportions and believable detail, gently
+softened and rounded, as if lovingly hand-made. Not a photo, not a
+cartoon, not chunky or toy-like. Smooth shading, no outlines, soft worn
+edges. Period-accurate for a London town house, about 1890.
+SIZE (real scale, cm): the iron surround 66 wide x 70 tall, standing
+3 cm proud of the wall; the opening 46 wide x 50 tall; the fire basket
+of 5 horizontal bars across the lower half of the opening; a flat iron
+hob each side of the basket, its top 30 cm above the floor, 14 cm wide
+and 10 cm deep; a stone hearth slab in front, 80 wide x 30 deep x 2.5
+thick.
+ORIENTATION: Y is up, the grate faces +Z, origin on the floor at the
+centre of the wall face (the hearth slab sits in front of it, toward +Z).
+
+SEPARATE NAMED PARTS (each its own object, keep these exact names):
+- surround: the cast-iron frame with a little simple moulding
+- basket: the bars of the fire basket
+- hob_left, hob_right: the two hob plates
+- back: the dark iron fireback inside the opening
+- coals: a small heap of cold black coals in the basket (the game will
+  make it glow)
+- ash: a thin layer of pale grey ash under the basket and spilling a
+  little onto the hearth
+- hearth: the stone slab
+
+COLORS (one named material each):
+- iron: #2A2826, rust: #6B3A22, coal: #1A1918, ash_grey: #9A958C,
+  hearth_stone: #6E6A62
+
+DETAIL BUDGET: up to 12,000 triangles.
+DO NOT INCLUDE: the wall or chimney breast, fire, flames, ground,
+background, text, lights, camera
+EXPORT: GLB, every part and material named as above
+```
+
+## 10. Ram Dass's attic: the things made ready (next_door.glb)
+
+Seen from the leads, looking down through his propped skylight. Clue 3 rests on it, and the rug, folding
+chair and folding table must be **the same ones** that appear in Sara's attic the next morning: attach
+the screenshot of attic_warm.glb to this prompt.
+
+```
+Make a 3D model of a set of objects for a browser game. The room itself
+is built separately: model ONLY the pieces listed, each at the exact
+position given.
+
+WHAT: the attic of an Indian manservant next door, in "A Little
+Princess" (Burnett, 1905), on the night he has everything ready to carry
+across the roof: "all his packages being in readiness in the attic which
+was his own." Parcels in brown paper and string, a rich crimson rug
+rolled up and stood on end, a folding chair and a folding table folded
+flat, and his dark lantern, lit. Plain and tidy, his own few things
+simple; the parcels are what matter.
+STYLE: stylized realism with a storybook warmth, like a high-quality
+animated film: real-world proportions and believable detail, gently
+softened and rounded, as if lovingly hand-made. Not a photo, not a
+cartoon, not chunky or toy-like. Smooth shading, no outlines, soft worn
+edges. Period-accurate for a London town house, about 1890.
+MATCHING: the rug, the folding chair and the folding table are the same
+ones as in the attached screenshot (the morning set), only rolled and
+folded. Same colours, same border, same wood.
+
+ROOM FRAME: origin = the centre of the attic floor, Y up, units in cm.
+The floor runs X -150..150, Z -180..180. The ceiling slopes from 140 cm
+high at Z -180 to 300 cm at Z +180. The far wall is at X -150.
+
+PIECES (each its own named object, origin at its base):
+- parcel_1: 55 x 36 x 42 cm, at X -118, Z 15
+- parcel_2: 42 x 30 x 36 cm, stacked on parcel_1 (base at Y 36)
+- parcel_3: 62 x 26 x 46 cm, at X -112, Z -120
+- parcel_4: 30 x 22 x 30 cm, on parcel_3 (base at Y 26)
+- parcel_5: 50 x 42 x 38 cm, at X -55, Z 95
+  All in brown paper with creased folds, tied both ways with pale string
+  knotted on top. Raise the string 0.5 cm proud of the paper.
+- rug_rolled: the crimson rug rolled tight, 120 cm tall, 24 cm across,
+  standing on end with its base at X -125, Z -45 and its top leaning
+  against the wall. The gold and indigo border shows as bands at each
+  end of the roll.
+- table_folded: the small folding table folded flat, leaning against
+  the wall at Z -75
+- chair_folded: the folding chair folded flat, leaning against the
+  wall at Z -95, without its cushions
+- lantern: a dark lantern of about 1890: a tin cylinder 16 cm across
+  and 24 cm tall, a conical vented cap, a carrying ring on top, a round
+  glass bull's-eye lens on the front and a curved sliding shutter
+  half-open beside it. Its base at X -120, Y 66, Z 17 (on top of
+  parcel_2), the lens facing +X.
+- lantern_lens: the glass lens as its own object, so the game can make
+  it glow
+
+COLORS (one named material each):
+- paper_brown: #8A6E4C, string: #D8CDB4, rug_crimson: #8A1C1E,
+  rug_gold: #C9A04A, rug_indigo: #2E3560, chair_wood: #5A3A24,
+  tin: #4A463E, lens_glass: #FFD28A
+
+DETAIL BUDGET: up to 20,000 triangles. Spend them on the rug's ends,
+the string and the lantern.
+DO NOT INCLUDE: walls, floor, ceiling, skylight, ground, background,
+text, lights, camera
+EXPORT: GLB, every object and material named as above
+```
+
+## 11. Becky's attic (becky_attic.glb)
+
+Clue 6 is that this room is untouched in the morning, so it must be as cold and poor as Sara's was, and
+just as carefully made: the player compares the two.
+
+```
+Make a 3D model of a set of furniture for a browser game. The room's
+walls, floor, ceiling, skylight and door are built separately: model
+ONLY the pieces listed, each at the exact position given.
+
+WHAT: the attic of Becky, a fourteen-year-old scullery maid, next to
+Sara's in "A Little Princess" (Burnett, 1905). Even poorer than Sara's:
+everything worn, mended and cold. A narrow iron bedstead with a thin
+lumpy mattress and a grey blanket with a darned patch, an old wooden
+box she uses as a table, a chipped enamel jug in a basin on it, and her
+spare apron and cap hanging on the wall.
+STYLE: stylized realism with a storybook warmth, like a high-quality
+animated film: real-world proportions and believable detail, gently
+softened and rounded, as if lovingly hand-made. Not a photo, not a
+cartoon, not chunky or toy-like. Smooth shading, no outlines, soft worn
+edges. Period-accurate for a London town house, about 1890.
+
+ROOM FRAME: origin = the centre of the attic floor, Y up, units in cm.
+The floor runs X -130..130, Z -180..180. The ceiling slopes from 140 cm
+high at Z -180 to 300 cm at Z +180. The door is in the +Z wall at
+X -65: keep X -110..-20, Z 100..180 clear.
+
+PIECES (each its own named object, origin at the base of the piece):
+- bedstead: a narrow old iron bedstead, black paint chipped to rust,
+  footprint X 40..130, Z -95..95, head rail (95 cm high) at Z +95, foot
+  rail (60 cm) at Z -95
+- mattress: thin and lumpy, a rounded box with soft edges (not a
+  stretched sphere), 88 x 188 x 8 cm, its top 46 cm above the floor
+- blanket: a thin grey blanket over most of the mattress, a darned patch
+  in one corner, hanging 12 cm over the sides
+- pillow: a flat sack pillow, a rounded box 45 x 28 x 6 cm, at the head
+- box: an old wooden box on its side used as a table, 50 x 45 x 40 cm,
+  at X -80, Z -50
+- jug, basin: a chipped white enamel jug standing in a matching basin
+  on the box
+- apron: a spare grey-white kitchen apron and a crumpled white cap
+  hanging from one point on the wall at X -128, Y 140, Z 20 (the nail is
+  built in code)
+
+COLORS (one named material each):
+- iron_black: #22201E, rust: #6B3A22, ticking_grey: #8B8F95,
+  blanket_grey: #6A6764, darn_wool: #8A7A66, sack: #A8A08E,
+  box_wood: #7A6448, enamel_white: #E4E0D6, enamel_chip: #2A2826,
+  apron_grey: #B9B2A4, cap_white: #D8D2C4
+
+DETAIL BUDGET: up to 15,000 triangles.
+DO NOT INCLUDE: walls, floor, ceiling, skylight, door, nail, candle,
+ground, background, text, lights, camera
+EXPORT: GLB, every object and material named as above
+```
 
 ## What to check when each GLB comes back
 
