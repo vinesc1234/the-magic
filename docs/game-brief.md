@@ -44,7 +44,9 @@ Holmes observes; Sara lives in the room. The Speckled Band's loop (walk, point, 
 5. ANSWER MISS MINCHIN, ON A TIMER (user decision, Oct 22). Her footsteps climb the stairs and stop outside the door; the line of candlelight under it waits. She speaks through the door ("Sara. Are you awake?" and worse). A few seconds to choose: answer politely, answer back, or say nothing (the timer running out is silence, and silence is a choice). In the book Sara's polite composure maddens her more than defiance would. Each answer changes what she says and what she takes: the candle-end, the crumbs, Emily for the night. Her face is never shown. Two or three such moments in the evening.
 6. THE KNOCKING CODE, AND THE WRONG WALL (user decision, Oct 22). Book: Sara knocks on the wall "for the prisoner in the next cell" and Becky comes. Early in the evening it is a small rhythm game: knock a pattern on the shared wall, Becky knocks it back, and her answer steadies the blending. Late in the night, when the blending is strong, the answer comes from the other wall, the one with nothing behind it. Teach something safe, then break it.
 7. SPOT WHAT CHANGED (user decision, Oct 22). All night, small things change when the player looks away: Emily's head turned, the footstool moved, one candle-end too many, the bed made when she never made it. Noticing is half the dread, and it trains the eye: in the morning, the warm room's clues are gathered by spotting what is new, and the same habit finds them. Each change noticed in the night goes in My book; none are needed to finish.
-Not chosen (Oct 22): a monkey-chase minigame (the ending still opens with the monkey, as in the book), a "Because of you" page, her father's letters.
+8. "BECAUSE OF YOU" (user decision, Oct 22), like Until Dawn's butterfly effect. A page in My book that fills as the night goes: the crumbs and who they went to (Melchisedec, Becky, herself), what she supposed and whether it came out right, each answer to Miss Minchin and what it cost, how often she stirred and what that cost the morning, the knocks, the changes noticed, the letters found. Shown in full at the end, with what a different choice would have changed left as blank lines, so the player wants to play again. Tracked from milestone 2; the page itself is built with the ending.
+9. HER FATHER'S LETTERS (user decision, Oct 22). In the book Captain Crewe writes to Sara from India: the diamond mines, his fever, his nickname for her, "little missus". The book doesn't say she kept any after everything was taken: that is ours. Four or five pages hidden where a child would hide what she couldn't bear to lose: sewn into Emily's petticoat, under the mattress, behind the loose skirting by Melchisedec's hole, in the footstool's torn lining, tucked on a rafter. Each is read in My book. The words are original, in his voice: warm, joking, then tired and feverish. They are comfort, never sinister: reading one steadies the blending. Late in the night the blending can only make the ink run, as if she had cried on it. Optional, and a collector's itch: "4 of 5 letters found."
+Not chosen (Oct 22): a monkey-chase minigame (the ending still opens with the monkey, as in the book).
 Left out on purpose: calling the sparrows (the book's sparrows come at sunset; this is night).
 Timing liberty: in the book, Ram Dass overheard her on an earlier night and the magic came days later. The game compresses it into one evening, one night and one morning. The README lists this.
 
@@ -65,6 +67,7 @@ LAYOUT (metres; -z is the front of the roof; Y up)
 - The square: street at y -10, the terrace across it at z -26, a few windows lit.
 - Old table under Sara's skylight: x -0.375..0.375, z -1.45..-0.95, 0.68 m high. On it, the candle-end at (0.26, -1.04). Standing on it: eye 2.06 m, head and shoulders out of the skylight.
 - Iron bedstead x -1.5..-0.6, z -0.95..0.95, head at +z. Red footstool at (0.62, -1.0). Cold grate in the back wall at x -0.7. Becky's bedstead local x 0.4..1.3.
+- Book check: the parcels in chapter 17 come addressed "To the Little Girl in the right-hand attic". Seen from the street, Sara's attic is the right-hand one of the Seminary's two, next to Ram Dass's: the layout agrees.
 - Arrivals: start at (0.6, 0.55) facing the table and skylight; on the table facing west along the slates; on the leads at (0, -2.42) facing his lit skylight.
 
 SIGHTLINES (measured by tools/test/shots.js on every run; it fails if these break)
@@ -109,7 +112,7 @@ becky, candle, grate, attic_cold, attic_warm, next_door, becky_attic, ram_dass, 
 BUILD ORDER (one milestone per session; playtest with screenshots after each)
 1. The shell. DONE.
 2. The feel of the cold attic: carry the candle (light in hand, burning down, set down on the table), the cold and the dark, the house's sounds, sitting on the footstool, crumbs for Melchisedec (a stand-in until his model), and the knocking code with Becky (the safe version). NEXT.
-3. Cold clues 1, 2, 3 with glow and cards, found by candlelight, and "My book" with seven empty slots.
+3. Cold clues 1, 2, 3 with glow and cards, found by candlelight, "My book" with seven empty slots, and her father's letters in their hiding places.
 4. Miss Minchin: footsteps on the stairs, the light under the door, her voice through it, and the timed answers with their consequences.
 5. The blending: reality slipping and steadying, things that change when you look away (and noticing them), the knock from the wrong wall, the cracking look.
 6. Suppose: the imagining spots, Sara's lines, the dreamlike overlays (and the ones that go wrong), remembering what was supposed. The gate to sleep.
@@ -118,7 +121,7 @@ BUILD ORDER (one milestone per session; playtest with screenshots after each)
 9. Morning clues 4, 5, 6 (found by spotting what is new), and clue 7 from the night.
 10. Becky and Ram Dass: dialogue with silhouette portraits, topics, facts; people alive at a few steps.
 11. The deduction.
-12. The ending.
+12. The ending, and the full "Because of you" page.
 13. Intro cutscene, sound polish, phone controls, accessibility settings.
 Playing time grows to about 20 to 30 minutes.
 
