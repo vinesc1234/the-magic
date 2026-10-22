@@ -23,6 +23,7 @@ Use this for every new game in this project. It is the process and lessons from 
 - **Small clue details stand proud and contrast.** Say "raised 3 cm from the wall, lighter than the wallpaper", never "set into the wall". (The ventilator, the most important clue, was flush and dark, so nobody could find it.)
 - **No stretched spheres for soft things.** Ask for pillows and cushions as rounded boxes with soft edges. (The pillow came out as an egg.)
 - **Real sizes in cm, origin at the base,** facing +Z. Note where the origin is for long things. (The snake's origin was mid-body, so it sat 50 cm too low.)
+- **Children need a child's proportions spelled out.** A child's height alone gives a shrunken adult. Ask for about 6 heads tall, a short neck, narrow shoulders, no waist, a round face with full cheeks, a small nose and the eyes at the middle of the head. Never ask for cheekbones or a "thin, underfed" face: it ages them. (The Magic's Becky came back as a small adult, then older still after a fix round asked for hollow cheeks.)
 - **Name every part, with a pivot at each joint.** Give people separate head, eyes, arms and forearms. Give them knees if they will ever sit.
 - **Send back a screenshot** with each GLB so problems are visible before any code is written.
 

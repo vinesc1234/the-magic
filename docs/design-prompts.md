@@ -58,11 +58,15 @@ Burnett, 1905). She is fourteen but "so stunted in growth that she looked
 about twelve": small, thin, worn out, timid. She blacks boots and grates
 and carries coal all day.
 STYLE: [shared style block]
-FACE: a believable young teenager's face, thin, with a defined nose, brows,
-lips and jaw; eyes only slightly larger than real, wide and anxious; a
-smudge of coal dust on one cheek and on the side of her nose. No doll face.
-BODY AND CLOTHES: real proportions for a small, underfed 14-year-old, about
-6.5 heads tall. A faded dark brown print frock to the ankles, sleeves
+FACE: a real child's face, about eleven or twelve to look at: round and
+soft, full cheeks, a soft rounded jaw and small chin, no cheekbones or
+hollows; a small, slightly upturned nose and a small mouth; eyes set at the
+middle of the head or a little lower, so the forehead is large, with
+eyelids gently lowered: shy and tired, not staring and not heavy-lidded.
+No soot or smudges on the face. Not a doll, not a cartoon.
+BODY AND CLOTHES: a child's proportions, about 6 heads tall: a short neck,
+narrow sloping shoulders, a straight up-and-down torso with no defined
+waist, arms and legs soft and slight, not long and slender. A faded dark brown print frock to the ankles, sleeves
 pushed up to the elbows, a coarse grey-white kitchen apron with grimy
 patches, a crumpled white cap over untidy mouse-brown hair, heavy worn
 black boots.
@@ -83,7 +87,7 @@ SEPARATE NAMED PARTS (each its own object, keep these exact names):
 
 COLORS (one named material each):
 - frock_brown: #4A3A2E, apron_grey: #B9B2A4, cap_white: #D8D2C4,
-  skin: #E6C3A8, hair_mouse: #7A6248, boots_black: #1C1816, soot: #2A2622
+  skin: #E6C3A8, hair_mouse: #7A6248, boots_black: #1C1816
 
 DETAIL BUDGET: up to 25,000 triangles. Spend them on the face, the hands
 and the folds of the apron.
