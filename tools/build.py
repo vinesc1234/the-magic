@@ -88,8 +88,8 @@ rest = rest.replace('<style>', '<style>\n*, *::before, *::after { box-sizing: bo
 i = rest.index('</style>') + len('</style>')
 web = meta + rest[:i] + '\n</head>\n<body>\n' + rest[i:] + swap_loader(game, FETCHED) + '\n</body>\n</html>\n'
 open(os.path.join(N, 'index.html'), 'w', encoding='utf-8').write(web)
-# a moth, drawn to the candle
-open(os.path.join(N, 'favicon.svg'), 'w').write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="#0d0a14"/><g transform="translate(8 14) scale(1.5)" fill="#b8914f"><path d="M16 6.5c-.8 0-1.2 1-1.2 2.3v8.6c0 1.4.5 2.6 1.2 2.6s1.2-1.2 1.2-2.6V8.8c0-1.3-.4-2.3-1.2-2.3z"/><path d="M14.8 9.5C11 3.5 3.5 2 1.3 4.8-.2 7.6 4.6 11.8 14.8 12.3z"/><path d="M17.2 9.5C21 3.5 28.5 2 30.7 4.8c1.5 2.8-3.3 7-13.5 7.5z"/><path d="M14.8 13.2C10.2 13.4 5.4 16.6 6.6 20c1.2 2.8 6-.2 8.2-4.6z"/><path d="M17.2 13.2c4.6.2 9.4 3.4 8.2 6.8-1.2 2.8-6-.2-8.2-4.6z"/></g></svg>')
+# a watching eye
+open(os.path.join(N, 'favicon.svg'), 'w').write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="#0d0a14"/><g transform="translate(6 15) scale(1.6)"><g fill="none" stroke="#b8914f" stroke-width="1.8" stroke-linecap="round"><path d="M2 12Q16 0 30 12Q16 24 2 12Z"/><path d="M8 6.5 6.5 3.5M12 4.6 11.4 1.4M16 4V.8M20 4.6 20.6 1.4M24 6.5 25.5 3.5"/></g><circle cx="16" cy="12" r="4.6" fill="#b8914f"/><circle cx="16" cy="12" r="2" fill="#0d0a14"/></g></svg>')
 open(os.path.join(N, 'netlify.toml'), 'w').write('''# Netlify settings for The Magic (a static site: no build step)
 [build]
   publish = "."
