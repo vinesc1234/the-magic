@@ -508,6 +508,7 @@ function candleEnd(room, x, y, z) {
   wax.position.y = 0.035; c.add(wax);
   const flame = new THREE.Mesh(new THREE.SphereGeometry(0.009, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffd890' }));
   flame.scale.set(1, 2.3, 1); flame.position.y = 0.075; flame.name = 'flame'; c.add(flame); flames.push(flame);
+  proxy(c, new THREE.BoxGeometry(0.18, 0.18, 0.18), 0, 0.08, 0);   // a target bigger than the candle, so it's easy to pick out
   const L = new THREE.PointLight('#ffb35c', CANDLE, 2.6, 2); L.position.set(x, y + 0.1, z);
   room.group.add(L); room.lights.push({ L, base: CANDLE, flicker: true, seed: rand() * 10 });
   return c;
@@ -556,12 +557,12 @@ const catchGroup = new THREE.Group(); sara.slope.add(catchGroup);
 {
   const rustIron = new THREE.MeshStandardMaterial({ color: '#4a2e1e', metalness: 0.4, roughness: 0.8 });
   catchGroup.position.set(SKY.x, (SKY.z0 - ROOF.minZ) / COS_A - 0.025, 0.045);
-  box(0.07, 0.035, 0.012, 0, 0, 0, rustIron, catchGroup);              // the plate
-  box(0.16, 0.014, 0.014, 0.05, 0.012, 0.014, rustIron, catchGroup);   // the stay
-  const arc = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0045, 8, 24, Math.PI),
-    new THREE.MeshStandardMaterial({ color: '#e6dccb', metalness: 0.9, roughness: 0.22, emissive: '#5a5040', emissiveIntensity: 0.4 }));
-  arc.position.set(-0.01, 0.005, 0.022); catchGroup.add(arc);
-  proxy(catchGroup, new THREE.BoxGeometry(0.26, 0.11, 0.08), 0.02, 0, 0.02);
+  box(0.09, 0.05, 0.014, 0, 0, 0, rustIron, catchGroup);               // the plate
+  box(0.2, 0.018, 0.018, 0.06, 0.014, 0.016, rustIron, catchGroup);    // the stay
+  const arc = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.006, 8, 28, Math.PI),
+    new THREE.MeshStandardMaterial({ color: '#efe6d4', metalness: 0.9, roughness: 0.2, emissive: '#7a6c52', emissiveIntensity: 0.6 }));
+  arc.position.set(-0.012, 0.006, 0.026); catchGroup.add(arc);
+  proxy(catchGroup, new THREE.BoxGeometry(0.34, 0.18, 0.12), 0.03, 0, 0.03);   // generous: the frame around it is big
   const glint = new THREE.PointLight('#cfd8ff', 0.1, 0.3, 2); glint.position.set(0, -0.02, 0.07); catchGroup.add(glint);
   sara.lights.push({ L: glint, base: 0.1 });
 }
@@ -602,8 +603,8 @@ const printsGroup = new THREE.Group(); scene.add(printsGroup);
   m.castShadow = false;
   proxy(printsGroup, new THREE.BoxGeometry(W, 0.06, D), -0.7, LEADS_Y + 0.03, -2.35);
 }
-examinables.push({ id: 'catch', room: 0, roots: [catchGroup] });
-examinables.push({ id: 'prints', room: 2, roots: [printsGroup] });
+examinables.push({ id: 'catch', room: 0, roots: [catchGroup], priority: 3 });
+examinables.push({ id: 'prints', room: 2, roots: [printsGroup], priority: 3 });
 examinables.push({ id: 'door_becky', room: 0, roots: [saraDoor] });
 examinables.push({ id: 'door_back', room: 1, roots: [beckyDoor] });
 examinables.push({ id: 'table', room: 0, roots: [table] });
@@ -612,11 +613,11 @@ examinables.push({ id: 'skylight_in', room: 2, roots: [sara.skylight.kerb, sara.
 // Sara's thoughts (the grate's is added once its model loads)
 examinables.push({ id: 'bed', room: 0, roots: [saraBed] });
 examinables.push({ id: 'footstool', room: 0, roots: [stool] });
-examinables.push({ id: 'candle', room: 0, roots: [candle] });
+examinables.push({ id: 'candle', room: 0, roots: [candle], priority: 2 });
 examinables.push({ id: 'skylight_look', room: 0, roots: [sara.skylight.inside, sara.skylight.lining], when: () => !perched });
 examinables.push({ id: 'becky_bed', room: 1, roots: [beckyBed] });
 examinables.push({ id: 'party_wall', room: 2, roots: [partyWall] });
-examinables.push({ id: 'next_door', room: 2, roots: [nextDoor.skylight.hinge, nextDoor.skylight.kerb, nextDoor.skylight.outside] });
+examinables.push({ id: 'next_door', room: 2, roots: [nextDoor.skylight.hinge, nextDoor.skylight.kerb, nextDoor.skylight.outside], priority: 3 });
 examinables.push({ id: 'square', room: 2, roots: [parapet] });
 scene.updateMatrixWorld(true);
 
@@ -800,15 +801,20 @@ function pickTarget() {
   if (!ready || cardOpen || moving) return null;
   if (!hitList) { const set = new Set(occluders); for (const ex of examinables) for (const m of ex.meshes) set.add(m); hitList = [...set]; }
   ray.setFromCamera(center, camera);
+  let best = null, firstAt = 0;
   for (const h of ray.intersectObjects(hitList, false)) {
     if (h.object.material && h.object.material.visible === false && !h.object.userData.proxy) continue;
-    const ex = h.object.userData.ex;   // first solid thing decides; walls block what is behind them
+    const ex = h.object.userData.ex;
     // look past things that aren't for here and now: the leads side of your skylight from inside, the view up
     // through it while you're standing in it
     if (ex && ((ex.room !== undefined && ex.room !== player.room) || (ex.when && !ex.when()))) continue;
-    return ex || null;
+    if (!best) { if (!ex) return null; best = ex; firstAt = h.distance; continue; }   // a wall first blocks everything behind it
+    // Small things sit on big ones (the candle on the table, the catch on the skylight's frame), and the dot slips
+    // onto the big one. Within a hand's breadth behind the first thing hit, the more specific thing wins.
+    if (!ex || h.distance - firstAt > 0.25) break;
+    if ((ex.priority || 1) > (best.priority || 1)) best = ex;
   }
-  return null;
+  return best;
 }
 function setGlow(ex, amount) {
   if (!ex || ex.person) return;   // people get the prompt, not a glow

@@ -111,6 +111,14 @@ const VIEWS = [
   await page.evaluate(() => window.__game.place(0, 0, -0.62, [0, 2.0, -1.3])); await frames(2);
   const up = await facing(); if (up === 'skylight_out') errors.push('the skylight can be climbed through from the floor');
 
+  // Near misses: small things beside big ones must still be easy to pick out. [what to expect, x, z, the point aimed at]
+  for (const [want, x, z, look] of [['catch', 0, -0.62, [0.1, 1.43, -1.69]], ['catch', 0.25, -0.6, [-0.08, 1.38, -1.69]],
+    ['candle', 0.35, -0.55, [0.19, 0.69, -1.06]], ['table', 0, -0.62, [-0.18, 0.68, -1.2]]]) {
+    await page.evaluate(([x, z, look]) => window.__game.place(0, x, z, look), [x, z, look]); await frames(2);
+    const t = await page.evaluate(() => window.__game.target);
+    if (t !== want) errors.push(`aiming near ${want} at ${look} picked ${t}`); else console.log('ok near miss picks', want);
+  }
+
   // Every one of Sara's thoughts can be reached from where a player stands, and opens its card. (By now every room
   // has been visited, so seeing the last one must bring up the end-of-build note: an unfinished game must never
   // look broken.) [id, room, x, z in that room's own coordinates, the world point to look at]
