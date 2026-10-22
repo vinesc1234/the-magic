@@ -1,13 +1,13 @@
 <title>The Magic</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Monsieur+La+Doulaise&family=Fondamento:ital@0;1&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Fondamento:ital@0;1&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
 <style>
 /* The look: a dark fairy tale. The storybook is still here (lettering, paper, ornament) but it has gone strange:
    tarnished gold instead of bright, paper stained at the edges, a watching eye where a sparkle was, a near-black plum
-   night, a vignette and a little film grain over the picture. The title in a spidery Victorian hand, like a letter
-   from the dead (Monsieur La Doulaise; title screen and story titles only), an old calligraphic hand for headings
-   and the corner title (Fondamento), a sharp gothic serif for reading (Cormorant Garamond).
+   night, a vignette and a little film grain over the picture. The title in a sharp, high-contrast horror-poster
+   serif with worn edges (Gloock), an old calligraphic hand for headings (Fondamento), a sharp gothic serif for
+   reading (Cormorant Garamond).
    One deliberate look in both themes: a winter night. */
 :root {
   --night: #0d0a14;            /* page ground: near-black plum */
@@ -22,7 +22,8 @@
   --ink2: #7a3039;             /* dried-rose ink, the second accent on paper */
   --moon: #a9a3c4;             /* cold moonlight */
   --mist: #d6cfe0;             /* HUD text */
-  --title: "Monsieur La Doulaise", "Fondamento", Georgia, serif;
+  --title: "Gloock", Georgia, "Times New Roman", serif;
+  --wear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='3' seed='4'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 1 1 1 1 1'/%3E%3C/feComponentTransfer%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='300' height='120' filter='url(%23n)'/%3E%3C/svg%3E");   /* ink broken up, as if printed on old damp paper */
   --display: "Fondamento", Georgia, "Times New Roman", serif;
   --body: "Cormorant Garamond", Georgia, "Times New Roman", serif;
   --eye: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 22'%3E%3Cg fill='none' stroke='%23b8914f' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M2 12Q16 0 30 12Q16 24 2 12Z'/%3E%3Cpath d='M8 6.5 6.5 3.5M12 4.6 11.4 1.4M16 4V.8M20 4.6 20.6 1.4M24 6.5 25.5 3.5'/%3E%3C/g%3E%3Ccircle cx='16' cy='12' r='4.6' fill='%23b8914f'/%3E%3Ccircle cx='16' cy='12' r='2' fill='%230d0a14'/%3E%3C/svg%3E");   /* an open eye: someone has been watching */
@@ -43,7 +44,7 @@ body { background: var(--night); color: var(--mist); font-family: var(--body); f
 
 .hud { position: fixed; z-index: 2; background: var(--panel); border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(184,145,79,0.28); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
 .title { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; padding: 6px 16px 9px; display: grid; gap: 0; }
-.title h1 { margin: 0; font: italic 400 22px/1.2 var(--display); color: var(--paper); text-shadow: 0 0 12px rgba(184,145,79,0.25); }
+.title h1 { margin: 0; font: 400 22px/1.2 var(--title); letter-spacing: 0.01em; color: var(--paper); text-shadow: 0 0 12px rgba(184,145,79,0.25); }
 .title p { margin: 0; font: italic 500 15px var(--body); color: var(--moon); }
 .title p b { color: var(--candle); font-weight: 600; }
 
@@ -108,7 +109,7 @@ kbd { font: 600 13px var(--body); color: var(--paper); background: rgba(233,220,
 @keyframes dust { from { transform: translateY(0); } to { transform: translateY(-30%); } }
 .intro > div { position: relative; z-index: 1; max-width: 520px; display: grid; gap: 14px; text-align: center; justify-items: center; }
 .intro .eyebrow { font: italic 500 16px var(--body); letter-spacing: 0.06em; color: var(--moon); }
-.intro h2 { margin: 0; padding: 0.12em 0.25em 0.05em; white-space: nowrap; font: 400 clamp(52px, 12vw, 92px)/1.1 var(--title); color: var(--paper); text-shadow: 0 0 30px rgba(184,145,79,0.3), 0 2px 0 rgba(0,0,0,0.5); }
+.intro h2 { margin: 0; padding: 0.05em 0.2em; white-space: nowrap; font: 400 clamp(52px, 12vw, 96px)/1.05 var(--title); color: var(--paper); text-shadow: 0 0 22px rgba(140,59,69,0.45), 0 2px 0 rgba(0,0,0,0.6); -webkit-mask-image: var(--wear); mask-image: var(--wear); }
 .intro .flourish { display: flex; align-items: center; gap: 12px; width: min(280px, 72vw); margin-top: -4px; }
 .intro .flourish::before, .intro .flourish::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--candle)); }
 .intro .flourish::after { transform: scaleX(-1); }
@@ -178,7 +179,7 @@ body.cinematic .hud, body.cinematic .reticle, body.cinematic .joy { visibility: 
 .cine .words { top: 38%; font: italic 500 clamp(26px, 5vw, 46px)/1.2 var(--body); color: var(--paper); }
 .cine .words.on { animation: shiver 0.14s steps(2) infinite; }
 @keyframes shiver { 0% { transform: translate(-50%, 0); } 50% { transform: translate(calc(-50% + 1.5px), -1px); } 100% { transform: translate(-50%, 1px); } }
-.cine .ctitle { top: 38%; white-space: nowrap; font: 400 clamp(52px, 12vw, 92px)/1.1 var(--title); color: var(--paper); text-shadow: 0 0 30px rgba(184,145,79,0.3); }
+.cine .ctitle { top: 38%; white-space: nowrap; font: 400 clamp(52px, 12vw, 96px)/1.05 var(--title); color: var(--paper); text-shadow: 0 0 22px rgba(140,59,69,0.45); -webkit-mask-image: var(--wear); mask-image: var(--wear); }
 .cine .skip { position: absolute; right: 18px; bottom: calc(2.5vh + env(safe-area-inset-bottom, 0px)); pointer-events: auto; background: transparent; border: 1px solid rgba(233,220,195,0.4); color: var(--paper); font: italic 400 15px var(--display); padding: 6px 16px; cursor: pointer; }
 .cine .skip:focus-visible { outline: 2px solid var(--candle); outline-offset: 2px; }
 @media (pointer: coarse) { .cine .skip kbd { display: none; } }
