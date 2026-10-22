@@ -67,7 +67,7 @@ LAYOUT (metres; -z is the front of the roof; Y up)
 - The square: street at y -10, the terrace across it at z -26, a few windows lit.
 - Old table under Sara's skylight: x -0.375..0.375, z -1.45..-0.95, 0.68 m high. On it, the candle-end at (0.26, -1.04). Standing on it: eye 2.06 m, head and shoulders out of the skylight.
 - Iron bedstead x -1.5..-0.6, z -0.95..0.95, head at +z. Red footstool at (0.62, -1.0). Cold grate in the back wall at x -0.7. Becky's bedstead local x 0.4..1.3.
-- Book check: the parcels in chapter 17 come addressed "To the Little Girl in the right-hand attic". Seen from the street, Sara's attic is the right-hand one of the Seminary's two, next to Ram Dass's: the layout agrees.
+- Book check: the parcels in chapter 16 come addressed "To the Little Girl in the right-hand attic". Seen from the street, Sara's attic is the right-hand one of the Seminary's two, next to Ram Dass's: the layout agrees.
 - Arrivals: start at (0.6, 0.55) facing the table and skylight; on the table facing west along the slates; on the leads at (0, -2.42) facing his lit skylight.
 
 SIGHTLINES (measured by tools/test/shots.js on every run; it fails if these break)
